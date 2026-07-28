@@ -8,9 +8,16 @@
     "build": "vite --configLoader runner build",
     "start": "node start.js",
     "test:security": "node --test tests/security.test.mjs tests/xss.test.mjs tests/concurrency.test.mjs",
+    "test:motion": "node --test tests/motion.test.mjs",
+    "test:ui": "node --test tests/ui-quality.test.mjs",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
+    "test:lighthouse": "node scripts/run-lighthouse.mjs",
     "test:sheets": "node scripts/testar-google-sheets.cjs",
     "setup:sheets": "node scripts/configurar-planilha.cjs",
-    "lint": "node --check start.js && node --check server.js && node --check src/main.js && node --check src/store.js"
+    "lint": "node --check start.js && node --check server.js && node --check src/main.js && node --check src/store.js && node --check src/theme.js && node --check public/theme-init.js && node --check scripts/start-quality-server.mjs && node --check scripts/run-lighthouse.mjs",
+    "verify:quality": "npm run lint && npm run test:security && npm run test:motion && npm run test:ui && npm run build && git diff --check",
+    "verify:continuous": "npm run verify:quality && npm run test:visual && npm run test:lighthouse"
   },
   "dependencies": {
     "@fontsource/bebas-neue": "^5.3.0",
@@ -24,6 +31,8 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.62.0",
     "jsdom": "^30.0.0",
     "tailwindcss": "^4.1.14"
   }

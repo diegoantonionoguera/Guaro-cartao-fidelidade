@@ -1,4 +1,4 @@
-import { INITIAL_USERS, INITIAL_COUPONS, INITIAL_CONFIG, INITIAL_CLIENTS, INITIAL_TRANSACTIONS, INITIAL_REDEMPTIONS, INITIAL_AUDIT_LOGS, INITIAL_SMS_LOGS } from './data/seedData';
+import { INITIAL_USERS, INITIAL_COUPONS, INITIAL_CONFIG, INITIAL_CLIENTS, INITIAL_TRANSACTIONS, INITIAL_REDEMPTIONS, INITIAL_AUDIT_LOGS } from './data/seedData';
 class Store {
     currentUser;
     users;
@@ -7,7 +7,6 @@ class Store {
     transactions;
     redemptions;
     auditLogs;
-    smsLogs;
     config;
     activeTab = 'dashboard';
     managerSubTab = 'pendentes';
@@ -15,7 +14,6 @@ class Store {
     auditSearchQuery = '';
     isAuthenticated = false;
     loginError = null;
-    isSmsDrawerOpen = false;
     showQuotaTooltip = false;
     // Modals state
     activeModal = 'none';
@@ -34,6 +32,8 @@ class Store {
     reconciliationLoading = false;
     // Toast notification
     toast = null;
+    toastSequence = 0;
+    toastDismissTimer = null;
     listeners = [];
     lastServerSnapshot = '';
     csrfToken = '';
@@ -48,7 +48,6 @@ class Store {
         this.transactions = [...INITIAL_TRANSACTIONS];
         this.redemptions = [...INITIAL_REDEMPTIONS];
         this.auditLogs = [...INITIAL_AUDIT_LOGS];
-        this.smsLogs = [...INITIAL_SMS_LOGS];
         this.restoreSession();
     }
     async restoreSession() {
@@ -126,17 +125,6 @@ class Store {
                         dataHora: r.dataHora
                     }));
                 }
-                if (data.smsLogs) {
-                    this.smsLogs = data.smsLogs.map((s) => ({
-                        id: s.id,
-                        clienteNome: s.clienteNome,
-                        telefoneDestino: s.telefoneDestino,
-                        mensagem: s.mensagem,
-                        tipo: 'pontos_ganhos',
-                        dataHora: s.dataHora,
-                        lida: s.lida
-                    }));
-                }
                 if (Array.isArray(data.auditLogs)) {
                     this.auditLogs = data.auditLogs
                         .map(log => ({
@@ -212,14 +200,18 @@ class Store {
         }
     }
     showToast(message, type = 'success') {
-        this.toast = { message, type, id: Date.now() };
+        if (this.toastDismissTimer)
+            clearTimeout(this.toastDismissTimer);
+        const id = ++this.toastSequence;
+        this.toast = { message, type, id };
         this.notify();
-        setTimeout(() => {
-            if (this.toast && Date.now() - this.toast.id >= 3500) {
+        this.toastDismissTimer = setTimeout(() => {
+            if (this.toast?.id === id) {
                 this.toast = null;
+                this.toastDismissTimer = null;
                 this.notify();
             }
-        }, 3600);
+        }, 3500);
     }
     async login(loginVal, passVal) {
         try {
@@ -281,10 +273,6 @@ class Store {
     }
     setAuditSearchQuery(q) {
         this.auditSearchQuery = q;
-        this.notify();
-    }
-    toggleSmsDrawer(open) {
-        this.isSmsDrawerOpen = open !== undefined ? open : !this.isSmsDrawerOpen;
         this.notify();
     }
     toggleQuotaTooltip(open) {
@@ -563,29 +551,6 @@ class Store {
             ipSimulado: '192.168.1.45'
         };
         this.auditLogs.unshift(log);
-    }
-    sendSms(telefoneDestino, clienteNome, mensagem, tipo, codigoRef) {
-        const sms = {
-            id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-            telefoneDestino,
-            clienteNome,
-            mensagem,
-            tipo,
-            codigoRef,
-            dataHora: new Date().toISOString(),
-            lida: false
-        };
-        this.smsLogs.unshift(sms);
-    }
-    markAllSmsAsRead() {
-        this.smsLogs.forEach(s => s.lida = true);
-        this.notify();
-    }
-    markSmsAsRead(id) {
-        const found = this.smsLogs.find(s => s.id === id);
-        if (found)
-            found.lida = true;
-        this.notify();
     }
     // ACTIONS
     async registerNewClient(nome, telefone, email, cpf) {

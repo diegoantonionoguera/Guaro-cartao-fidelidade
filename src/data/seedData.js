@@ -59,7 +59,7 @@ export const INITIAL_CONFIG = {
     valorResgateReais: 10.0, // R$ 10,00 de desconto
     cotaDiariaPadrao: 500,
     expiracaoCodigoMinutos: 1,
-    nomeEstabelecimento: 'El Buen Venezolano Guaro'
+    nomeEstabelecimento: 'Guaro El Buen Venezolano'
 };
 const todayISO = new Date().toISOString();
 const yesterdayISO = new Date(Date.now() - 86400000).toISOString();
@@ -245,7 +245,7 @@ export const INITIAL_SMS_LOGS = [
         id: 'sms-1',
         telefoneDestino: '(11) 99887-1122',
         clienteNome: 'Mariana Costa',
-        mensagem: 'El Buen Venezolano Guaro: Você ganhou 125 pontos na comanda CMD-4892. Seu novo saldo é 240 pts.',
+        mensagem: 'Guaro: Você ganhou 125 pontos na comanda CMD-4892. Seu novo saldo é 240 pts.',
         tipo: 'pontos_ganhos',
         dataHora: todayISO,
         lida: true
@@ -254,7 +254,7 @@ export const INITIAL_SMS_LOGS = [
         id: 'sms-2',
         telefoneDestino: '(11) 96543-2109',
         clienteNome: 'Rafael Santos',
-        mensagem: 'El Buen Venezolano Guaro: Sua compra da comanda CMD-4898 (580 pts) está aguardando liberação do gerente.',
+        mensagem: 'Guaro: Sua compra da comanda CMD-4898 (580 pts) está aguardando liberação do gerente.',
         tipo: 'aprovacao_pendente',
         dataHora: todayISO,
         lida: false

@@ -1,0 +1,12 @@
+#toast-container,
+.quota-tooltip {
+  visibility: hidden !important;
+}
+
+*,
+*::before,
+*::after {
+  caret-color: transparent !important;
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+}

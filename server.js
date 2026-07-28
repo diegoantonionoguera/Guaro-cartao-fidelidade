@@ -9,6 +9,7 @@ import { withWriteLock } from './src/services/writeLock.js';
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const production = process.env.NODE_ENV === 'production';
+const host = process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1');
 const sessions = new Map();
 const loginAttempts = new Map();
 const redemptionChallenges = new Map();
@@ -24,6 +25,7 @@ function environmentDiagnostics() {
   return {
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: process.env.PORT || '3000',
+    HOST: host,
     ADMIN_USER: Boolean(process.env.ADMIN_USER),
     ADMIN_PASSWORD: Boolean(process.env.ADMIN_PASSWORD),
     ADMIN_PASSWORD_LENGTH: String(process.env.ADMIN_PASSWORD || '').length,
@@ -42,13 +44,17 @@ function validateEnvironment() {
   const required = [
     'ADMIN_USER',
     'ADMIN_PASSWORD',
-    'GOOGLE_SHEETS_ID',
-    'GOOGLE_SERVICE_ACCOUNT_EMAIL',
-    'GOOGLE_PRIVATE_KEY',
-    'RESEND_API_KEY',
     'EMAIL_FROM',
     'REDEMPTION_CODE_SECRET'
   ];
+  if (production) {
+    required.push(
+      'GOOGLE_SHEETS_ID',
+      'GOOGLE_SERVICE_ACCOUNT_EMAIL',
+      'GOOGLE_PRIVATE_KEY',
+      'RESEND_API_KEY'
+    );
+  }
   const missing = required.filter(key => !String(process.env[key] || '').trim());
   if (missing.length) {
     throw new Error(`Variáveis obrigatórias ausentes: ${missing.join(', ')}.`);
@@ -1343,7 +1349,7 @@ async function startServer() {
     }
 
     await new Promise((resolve, reject) => {
-      const server = app.listen(port, '0.0.0.0', () => {
+      const server = app.listen(port, host, () => {
         console.log(`[BOOT] El Buen Venezolano Guaro iniciado na porta ${port}.`);
         resolve();
       });

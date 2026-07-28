@@ -2,9 +2,9 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# El Buen Venezolano Guaro
+# Fidelidade Guaro
 
-Aplicação em HTML, CSS e JavaScript com uma API Express protegida e persistência em Google Sheets.
+Painel interno de clientes, pontos e recompensas do Guaro El Buen Venezolano. A aplicação usa HTML, Tailwind CSS e JavaScript com uma API Express protegida e persistência em Google Sheets.
 
 ## Configuração
 
@@ -14,6 +14,13 @@ Aplicação em HTML, CSS e JavaScript com uma API Express protegida e persistên
 4. Execute `npm install` e depois `npm run dev`.
 5. Execute `npm run setup:sheets` para criar/atualizar as abas e seus cabeçalhos.
 
+Em desenvolvimento, o servidor aceita conexões somente de `127.0.0.1`. Em produção, use `NODE_ENV=production`; o host passa a `0.0.0.0` para funcionar em plataformas como Render.
+
+As decisões de identidade e componentes estão documentadas em:
+
+- `docs/brand-guidelines.md`
+- `docs/design-system.md`
+
 A primeira linha de cada aba deve conter os nomes dos campos. A API cria o cabeçalho automaticamente ao fazer a primeira inclusão em uma aba vazia.
 
 ## Envio dos códigos por e-mail
@@ -22,7 +29,7 @@ A primeira linha de cada aba deve conter os nomes dos campos. A API cria o cabe�
 2. Adicione no DNS os registros SPF e DKIM informados pelo Resend e aguarde a verificação.
 3. Crie uma API key com permissão apenas de envio.
 4. No Render, adicione `RESEND_API_KEY`, `EMAIL_FROM`, `REDEMPTION_CODE_SECRET` e, opcionalmente, `EMAIL_REPLY_TO`. O segredo de resgate deve ter pelo menos 32 caracteres e não pode reutilizar a senha administrativa.
-5. Use em `EMAIL_FROM` um endereço do domínio verificado, por exemplo `El Buen Venezolano Guaro <fidelidade@seudominio.com>`.
+5. Use em `EMAIL_FROM` um endereço do domínio verificado, por exemplo `Guaro El Buen Venezolano <fidelidade@seudominio.com>`.
 
 A chave da API existe somente no backend. Os códigos possuem seis dígitos, expiram em um minuto, permitem no máximo cinco tentativas e não são enviados ao navegador nem armazenados em texto aberto.
 
