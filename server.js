@@ -20,14 +20,54 @@ const sessionValidationMs = 60_000;
 const codeLifetimeMs = 60_000;
 const entryWindowMs = 120_000;
 
-if (!process.env.ADMIN_USER || !process.env.ADMIN_PASSWORD) {
-  throw new Error('Defina ADMIN_USER e ADMIN_PASSWORD antes de iniciar o servidor.');
+function environmentDiagnostics() {
+  return {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    PORT: process.env.PORT || '3000',
+    ADMIN_USER: Boolean(process.env.ADMIN_USER),
+    ADMIN_PASSWORD: Boolean(process.env.ADMIN_PASSWORD),
+    ADMIN_PASSWORD_LENGTH: String(process.env.ADMIN_PASSWORD || '').length,
+    GOOGLE_SHEETS_ID: Boolean(process.env.GOOGLE_SHEETS_ID),
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL),
+    GOOGLE_PRIVATE_KEY: Boolean(process.env.GOOGLE_PRIVATE_KEY),
+    RESEND_API_KEY: Boolean(process.env.RESEND_API_KEY),
+    EMAIL_FROM: Boolean(process.env.EMAIL_FROM),
+    EMAIL_REPLY_TO: Boolean(process.env.EMAIL_REPLY_TO),
+    REDEMPTION_CODE_SECRET: Boolean(process.env.REDEMPTION_CODE_SECRET),
+    REDEMPTION_CODE_SECRET_LENGTH: String(process.env.REDEMPTION_CODE_SECRET || '').length
+  };
 }
-if (production && process.env.ADMIN_PASSWORD.length < 12) {
-  throw new Error('ADMIN_PASSWORD deve ter pelo menos 12 caracteres em produção.');
-}
-if (production && String(process.env.REDEMPTION_CODE_SECRET || '').length < 32) {
-  throw new Error('REDEMPTION_CODE_SECRET deve ter pelo menos 32 caracteres em produção.');
+
+function validateEnvironment() {
+  const required = [
+    'ADMIN_USER',
+    'ADMIN_PASSWORD',
+    'GOOGLE_SHEETS_ID',
+    'GOOGLE_SERVICE_ACCOUNT_EMAIL',
+    'GOOGLE_PRIVATE_KEY',
+    'RESEND_API_KEY',
+    'EMAIL_FROM',
+    'REDEMPTION_CODE_SECRET'
+  ];
+  const missing = required.filter(key => !String(process.env[key] || '').trim());
+  if (missing.length) {
+    throw new Error(`Variáveis obrigatórias ausentes: ${missing.join(', ')}.`);
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('PORT deve ser um número inteiro entre 1 e 65535.');
+  }
+  if (production && process.env.ADMIN_PASSWORD.length < 12) {
+    throw new Error(`ADMIN_PASSWORD possui ${process.env.ADMIN_PASSWORD.length} caracteres; o mínimo em produção é 12.`);
+  }
+  if (production && process.env.REDEMPTION_CODE_SECRET.length < 32) {
+    throw new Error(`REDEMPTION_CODE_SECRET possui ${process.env.REDEMPTION_CODE_SECRET.length} caracteres; o mínimo em produção é 32.`);
+  }
+  if (process.env.REDEMPTION_CODE_SECRET === process.env.ADMIN_PASSWORD) {
+    throw new Error('REDEMPTION_CODE_SECRET deve ser diferente de ADMIN_PASSWORD.');
+  }
+  if (!validEmail(process.env.EMAIL_FROM.match(/<([^>]+)>/)?.[1] || process.env.EMAIL_FROM)) {
+    throw new Error('EMAIL_FROM deve conter um endereço de e-mail válido.');
+  }
 }
 
 app.disable('x-powered-by');
@@ -344,8 +384,10 @@ app.post('/api/auth/login', async (req, res) => {
   }
   let user = null;
 
-  if (safeEqual(username, process.env.ADMIN_USER) && safeEqual(password, process.env.ADMIN_PASSWORD)) {
-    user = { id: 'admin', nome: 'Administrador', login: username, perfil: 'gerente', cotaDiariaPontos: 999999, ativo: true };
+  if (safeEqual(username, process.env.ADMIN_USER)) {
+    if (safeEqual(password, process.env.ADMIN_PASSWORD)) {
+      user = { id: 'admin', nome: 'Administrador', login: username, perfil: 'gerente', cotaDiariaPontos: 999999, ativo: true };
+    }
   } else if (isSheetsConfigured()) {
     try {
       const users = await readSheet('usuarios');
@@ -1281,18 +1323,38 @@ app.put('/api/config', requireAuth, requireManager, async (req, res) => {
   }
 });
 
-if (!production) {
-  const vite = await createViteServer({
-    configLoader: 'runner',
-    server: { middlewareMode: true, hmr: false },
-    optimizeDeps: { noDiscovery: true, include: [] },
-    appType: 'spa'
-  });
-  app.use(vite.middlewares);
-} else {
-  const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+async function startServer() {
+  try {
+    validateEnvironment();
+    console.log('[BOOT] Configuração validada:', environmentDiagnostics());
+
+    if (!production) {
+      const vite = await createViteServer({
+        configLoader: 'runner',
+        server: { middlewareMode: true, hmr: false },
+        optimizeDeps: { noDiscovery: true, include: [] },
+        appType: 'spa'
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+    }
+
+    await new Promise((resolve, reject) => {
+      const server = app.listen(port, '0.0.0.0', () => {
+        console.log(`[BOOT] El Buen Venezolano Guaro iniciado na porta ${port}.`);
+        resolve();
+      });
+      server.once('error', reject);
+    });
+  } catch (error) {
+    console.error('[BOOT_FATAL] Não foi possível iniciar o servidor.');
+    console.error(`[BOOT_FATAL] ${error.message}`);
+    console.error('[BOOT_FATAL] Diagnóstico seguro:', environmentDiagnostics());
+    process.exitCode = 1;
+  }
 }
 
-app.listen(port, '0.0.0.0', () => console.log(`El Buen Venezolano Guaro em http://localhost:${port}`));
+await startServer();

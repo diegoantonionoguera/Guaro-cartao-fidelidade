@@ -29,9 +29,11 @@ test.before(async () => {
       ADMIN_USER: 'security-admin',
       ADMIN_PASSWORD: 'correct-horse-battery-staple',
       REDEMPTION_CODE_SECRET: 'security-test-secret-with-more-than-32-characters',
-      GOOGLE_SHEETS_ID: '',
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: '',
-      GOOGLE_PRIVATE_KEY: ''
+      GOOGLE_SHEETS_ID: 'test-sheet-id',
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: 'service@example.test',
+      GOOGLE_PRIVATE_KEY: 'test-private-key',
+      RESEND_API_KEY: 'test-resend-key',
+      EMAIL_FROM: 'Security Test <security@example.test>'
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -95,4 +97,33 @@ test('bloqueia força bruta após cinco tentativas', async () => {
     body: JSON.stringify({ username: 'security-admin', password: 'still-wrong' })
   });
   assert.equal(blocked.status, 429);
+});
+
+test('encerra o boot com diagnóstico seguro quando a senha é fraca', async () => {
+  const output = [];
+  const invalidServer = spawn(process.execPath, ['server.js'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      PORT: '43118',
+      ADMIN_USER: 'security-admin',
+      ADMIN_PASSWORD: 'curta',
+      REDEMPTION_CODE_SECRET: 'security-test-secret-with-more-than-32-characters',
+      GOOGLE_SHEETS_ID: 'test-sheet-id',
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: 'service@example.test',
+      GOOGLE_PRIVATE_KEY: 'test-private-key',
+      RESEND_API_KEY: 'test-resend-key',
+      EMAIL_FROM: 'Security Test <security@example.test>'
+    },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  invalidServer.stdout.on('data', chunk => output.push(chunk.toString()));
+  invalidServer.stderr.on('data', chunk => output.push(chunk.toString()));
+  const exitCode = await new Promise(resolve => invalidServer.once('exit', resolve));
+  const text = output.join('');
+  assert.equal(exitCode, 1);
+  assert.match(text, /\[BOOT_FATAL\]/);
+  assert.match(text, /ADMIN_PASSWORD possui 5 caracteres/);
+  assert.doesNotMatch(text, /correct-horse|security-test-secret-with/);
 });

@@ -48,4 +48,19 @@ npm run test:security
 npm audit
 ```
 
+## Diagnóstico de inicialização no Render
+
+Em produção, o servidor valida no boot:
+
+- `ADMIN_USER`
+- `ADMIN_PASSWORD` com pelo menos 12 caracteres
+- `GOOGLE_SHEETS_ID`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `REDEMPTION_CODE_SECRET` com pelo menos 32 caracteres e diferente da senha
+
+`EMAIL_REPLY_TO` é opcional. Se alguma configuração estiver inválida, o log do Render exibirá `[BOOT_FATAL]` com o nome da variável ou a regra que falhou. O diagnóstico mostra somente presença e comprimento, nunca o conteúdo dos segredos.
+
 O backend serializa as operações de pontos e mantém um livro-razão, o que protege uma instância única do serviço. O Google Sheets ainda não oferece transações distribuídas: mantenha apenas uma instância do Render. Para escalar horizontalmente ou operar em alto volume, migre o saldo para PostgreSQL e use a planilha somente como relatório.
