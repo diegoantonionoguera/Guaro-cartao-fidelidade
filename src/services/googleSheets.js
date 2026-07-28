@@ -147,6 +147,34 @@ export async function updateObjectById(sheetName, id, object) {
   return true;
 }
 
+export async function updateFirstObject(sheetName, object) {
+  const range = encodeURIComponent(`'${sheetName}'!A:ZZ`);
+  const data = await request(`/values/${range}`);
+  const [currentHeaders = [], firstRow] = data.values || [];
+  if (!firstRow) {
+    await appendObject(sheetName, object);
+    return;
+  }
+
+  const headers = [...currentHeaders, ...Object.keys(object).filter(key => !currentHeaders.includes(key))];
+  if (headers.length !== currentHeaders.length) {
+    await request(`/values/${encodeURIComponent(`'${sheetName}'!A1`)}?valueInputOption=RAW`, {
+      method: 'PUT',
+      body: JSON.stringify({ values: [headers] })
+    });
+  }
+
+  const updatedRow = headers.map((header, columnIndex) => (
+    Object.prototype.hasOwnProperty.call(object, header)
+      ? object[header] ?? ''
+      : firstRow[columnIndex] ?? ''
+  ));
+  await request(`/values/${encodeURIComponent(`'${sheetName}'!A2`)}?valueInputOption=RAW`, {
+    method: 'PUT',
+    body: JSON.stringify({ values: [updatedRow] })
+  });
+}
+
 export async function deleteObjectById(sheetName, id) {
   const range = encodeURIComponent(`'${sheetName}'!A:ZZ`);
   const data = await request(`/values/${range}`);

@@ -518,7 +518,7 @@ function setupEventDelegation() {
             const r$Resgate = parseFloat(formData.get('valorResgateR$'));
             const cota = parseInt(formData.get('cotaPadrao'), 10);
             const minSms = parseInt(formData.get('expiracaoMin'), 10);
-            store.saveSystemConfig({
+            await store.saveSystemConfig({
                 taxaConversaoReais: taxa,
                 valorResgatePontos: ptsResgate,
                 valorResgateReais: r$Resgate,

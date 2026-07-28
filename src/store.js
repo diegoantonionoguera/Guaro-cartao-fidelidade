@@ -133,8 +133,23 @@ class Store {
                         lida: s.lida
                     }));
                 }
-                if (data.auditLogs)
-                    this.auditLogs = data.auditLogs;
+                if (Array.isArray(data.auditLogs)) {
+                    this.auditLogs = data.auditLogs
+                        .map(log => ({
+                            id: String(log.id || ''),
+                            dataHora: log.dataHora || log.data || new Date(0).toISOString(),
+                            acao: String(log.acao || 'acao_sistema'),
+                            usuarioId: String(log.usuarioId || ''),
+                            usuarioNome: String(log.usuarioNome || 'Sistema'),
+                            usuarioPerfil: String(log.usuarioPerfil || 'sistema'),
+                            detalhes: String(log.detalhes || ''),
+                            categoria: String(log.categoria || 'SISTEMA'),
+                            comandaRef: String(log.comandaRef || ''),
+                            clienteRef: String(log.clienteRef || ''),
+                            ip: String(log.ip || '')
+                        }))
+                        .sort((left, right) => new Date(right.dataHora) - new Date(left.dataHora));
+                }
                 if (data.config) {
                     this.config = data.config;
                 }
@@ -787,15 +802,31 @@ class Store {
             return false;
         }
     }
-    saveSystemConfig(newConfig) {
+    async saveSystemConfig(newConfig) {
         if (this.currentUser.perfil !== 'gerente') {
             this.showToast('Somente o Gerente pode alterar configurações!', 'error');
-            return;
+            return false;
         }
-        this.config = { ...this.config, ...newConfig };
-        this.addAuditLog('edicao_config', `Parâmetros do sistema alterados pelo Gerente ${this.currentUser.nome}`);
-        this.showToast('Configurações do sistema atualizadas!');
-        this.notify();
+        const config = { ...this.config, ...newConfig };
+        try {
+            const response = await fetch('/api/config', {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível salvar a configuração.');
+            this.config = result.config;
+            this.showToast('Configurações do sistema atualizadas!');
+            this.notify();
+            return true;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
     }
 }
 export const store = new Store();

@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
-import { appendObject, deleteObjectById, isSheetsConfigured, readSheet, updateObjectById } from './src/services/googleSheets.js';
+import { appendObject, deleteObjectById, isSheetsConfigured, readSheet, updateFirstObject, updateObjectById } from './src/services/googleSheets.js';
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -212,6 +212,13 @@ app.post('/api/auth/login', async (req, res) => {
   const token = crypto.randomBytes(32).toString('base64url');
   sessions.set(token, { user, expiresAt: Date.now() + sessionHours * 3600_000 });
   res.setHeader('Set-Cookie', `fideli_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${sessionHours * 3600}${production ? '; Secure' : ''}`);
+  if (isSheetsConfigured()) {
+    appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'login_sucesso',
+      usuarioId: user.id, usuarioNome: user.nome, usuarioPerfil: user.perfil,
+      detalhes: 'Acesso autenticado no sistema', categoria: 'SEGURANCA', ip: req.ip
+    }).catch(error => console.error('Falha ao registrar login na auditoria:', error));
+  }
   res.json({ user });
 });
 
@@ -371,6 +378,11 @@ app.put('/api/coupons/:id', requireAuth, requireManager, async (req, res) => {
   try {
     const updated = await updateObjectById('cupons', id, changes);
     if (!updated) return res.status(404).json({ error: 'Cupom não encontrado na planilha.' });
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'edicao_cupom',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Cupom atualizado: ${titulo}`, categoria: 'CUPONS', ip: req.ip
+    });
     res.json({ coupon: { id, ...changes } });
   } catch (error) {
     console.error(error);
@@ -381,8 +393,16 @@ app.put('/api/coupons/:id', requireAuth, requireManager, async (req, res) => {
 app.delete('/api/coupons/:id', requireAuth, requireManager, async (req, res) => {
   const id = cleanText(req.params.id, 100);
   try {
+    const coupons = await readSheet('cupons');
+    const coupon = coupons.find(item => String(item.id) === id);
+    if (!coupon) return res.status(404).json({ error: 'Cupom não encontrado.' });
     const removed = await deleteObjectById('cupons', id);
     if (!removed) return res.status(404).json({ error: 'Cupom não encontrado.' });
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'exclusao_cupom',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Cupom excluído: ${coupon.titulo}`, categoria: 'CUPONS', ip: req.ip
+    });
     res.status(204).end();
   } catch (error) {
     console.error(error);
@@ -802,6 +822,11 @@ app.post('/api/users', requireAuth, requireManager, async (req, res) => {
       passwordHash: hashPassword(password)
     };
     await appendObject('usuarios', user);
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'cadastro_usuario',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Usuário criado: ${nome} (${perfil})`, categoria: 'USUARIOS', ip: req.ip
+    });
     res.status(201).json({ user: publicUser(user) });
   } catch (error) {
     console.error(error);
@@ -831,6 +856,12 @@ app.put('/api/users/:id', requireAuth, requireManager, async (req, res) => {
     if (password) changes.passwordHash = hashPassword(password);
     const updated = await updateObjectById('usuarios', id, changes);
     if (!updated) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'edicao_usuario',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Usuário atualizado: ${nome} (${perfil})${password ? '; senha alterada' : ''}`,
+      categoria: 'USUARIOS', ip: req.ip
+    });
     res.json({ user: publicUser({ id, ...changes }) });
   } catch (error) {
     console.error(error);
@@ -842,12 +873,53 @@ app.delete('/api/users/:id', requireAuth, requireManager, async (req, res) => {
   const id = cleanText(req.params.id, 100);
   if (id === req.user.id) return res.status(400).json({ error: 'Você não pode excluir o próprio acesso.' });
   try {
+    const users = await readSheet('usuarios');
+    const user = users.find(item => String(item.id) === id);
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
     const removed = await deleteObjectById('usuarios', id);
     if (!removed) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'exclusao_usuario',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Usuário excluído: ${user.nome} (${user.perfil})`,
+      categoria: 'USUARIOS', ip: req.ip
+    });
     res.status(204).end();
   } catch (error) {
     console.error(error);
     res.status(502).json({ error: 'Não foi possível excluir o usuário.' });
+  }
+});
+
+app.put('/api/config', requireAuth, requireManager, async (req, res) => {
+  const config = {
+    nomeEstabelecimento: cleanText(req.body?.nomeEstabelecimento, 120),
+    taxaConversaoReais: Number(req.body?.taxaConversaoReais),
+    valorResgatePontos: Number(req.body?.valorResgatePontos),
+    valorResgateReais: Number(req.body?.valorResgateReais),
+    cotaDiariaPadrao: Number(req.body?.cotaDiariaPadrao),
+    expiracaoCodigoMinutos: Number(req.body?.expiracaoCodigoMinutos)
+  };
+  if (!config.nomeEstabelecimento ||
+      !Number.isFinite(config.taxaConversaoReais) || config.taxaConversaoReais <= 0 ||
+      !Number.isInteger(config.valorResgatePontos) || config.valorResgatePontos <= 0 ||
+      !Number.isFinite(config.valorResgateReais) || config.valorResgateReais <= 0 ||
+      !Number.isInteger(config.cotaDiariaPadrao) || config.cotaDiariaPadrao < 0 ||
+      !Number.isInteger(config.expiracaoCodigoMinutos) || config.expiracaoCodigoMinutos < 1) {
+    return res.status(400).json({ error: 'Configuração inválida.' });
+  }
+  try {
+    await updateFirstObject('configuracao', config);
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'edicao_configuracao',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: 'Parâmetros gerais do sistema atualizados',
+      categoria: 'CONFIGURACAO', ip: req.ip
+    });
+    res.json({ config });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível salvar a configuração.' });
   }
 });
 
