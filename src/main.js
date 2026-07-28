@@ -84,11 +84,6 @@ function setupEventDelegation() {
             store.logout();
             return;
         }
-        // Switch to Manager Button
-        if (target.closest('#btn-switch-to-manager')) {
-            store.openModal('manager-auth', 'u-3');
-            return;
-        }
         // Nav Tabs
         if (target.closest('#btn-nav-dashboard')) {
             store.setActiveTab('dashboard');
@@ -141,8 +136,15 @@ function setupEventDelegation() {
         const deleteUserBtn = target.closest('[data-action="delete-user"]');
         if (deleteUserBtn) {
             const userId = deleteUserBtn.dataset.userId;
-            if (userId)
+            if (userId && window.confirm('Excluir este usuário? Ele perderá o acesso ao sistema.'))
                 store.deleteUser(userId);
+            return;
+        }
+        const deleteClientBtn = target.closest('[data-action="delete-client"]');
+        if (deleteClientBtn) {
+            const clientId = deleteClientBtn.dataset.clientId;
+            if (clientId && window.confirm('Excluir este cliente da planilha? Esta ação não pode ser desfeita.'))
+                store.deleteClient(clientId);
             return;
         }
         const addCouponBtn = target.closest('[data-action="add-coupon"]');
@@ -302,22 +304,6 @@ function setupEventDelegation() {
             return;
         }
     });
-    // Global Change & Input Delegations
-    document.addEventListener('change', (e) => {
-        const target = e.target;
-        if (target.id === 'select-user-profile') {
-            const selectElem = target;
-            const val = selectElem.value;
-            const targetUser = store.users.find(u => u.id === val);
-            if (targetUser && targetUser.perfil === 'gerente' && store.currentUser.id !== targetUser.id) {
-                selectElem.value = store.currentUser.id; // revert selection until authenticated
-                store.openModal('manager-auth', val);
-            }
-            else {
-                store.setCurrentUser(val);
-            }
-        }
-    });
     document.addEventListener('input', (e) => {
         const target = e.target;
         if (target.id === 'input-client-search') {
@@ -345,13 +331,6 @@ function setupEventDelegation() {
             const loginVal = formData.get('login') || '';
             const passVal = formData.get('senha') || '';
             store.login(loginVal, passVal);
-            return;
-        }
-        if (target.id === 'form-manager-auth') {
-            const formData = new FormData(target);
-            const loginVal = formData.get('login') || '';
-            const passVal = formData.get('senha') || '';
-            store.verifyAndSwitchManager(loginVal, passVal);
             return;
         }
         if (target.id === 'form-new-client') {
@@ -396,12 +375,14 @@ function setupEventDelegation() {
             const nome = (formData.get('nome') || '').trim();
             const loginVal = (formData.get('login') || '').trim();
             const perfil = (formData.get('perfil') || 'atendente');
+            const password = formData.get('password') || '';
             const cotaDiaria = parseInt(formData.get('cotaDiaria') || '0', 10) || 500;
-            if (!nome || !loginVal) {
-                store.showToast('Preencha o nome e login do usuário.', 'error');
+            const isEditing = Boolean(store.editingUserId);
+            if (!nome || !loginVal || (!isEditing && password.length < 8) || (password && password.length < 8)) {
+                store.showToast('Preencha os dados e use uma senha com pelo menos 8 caracteres.', 'error');
             }
             else {
-                store.saveUser({ nome, login: loginVal, perfil, cotaDiariaPontos: cotaDiaria });
+                await store.saveUser({ nome, login: loginVal, perfil, cotaDiariaPontos: cotaDiaria, password });
             }
             return;
         }

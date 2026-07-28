@@ -12,10 +12,10 @@ export function renderManagerPanel() {
           O perfil atual "<strong>${store.currentUser.nome}</strong>" (${store.currentUser.perfil}) não possui permissão para acessar o painel de gerenciamento, aprovações de excedentes e configurações avançadas.
         </p>
         <button
-          id="btn-switch-to-manager"
+          id="btn-logout"
           class="px-5 py-2.5 bg-white text-black hover:bg-zinc-200 font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xl inline-flex items-center space-x-2"
         >
-          <span>Alternar para Carlos Eduardo (Gerente)</span>
+          <span>Sair e entrar como gerente</span>
         </button>
       </div>
     `;

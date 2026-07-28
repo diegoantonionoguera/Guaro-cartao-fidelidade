@@ -10,7 +10,7 @@ const schemas = {
   ],
   usuarios: [
     'id', 'nome', 'login', 'perfil', 'cotaDiariaPontos',
-    'cotaRestanteHoje', 'totalLancado', 'ativo', 'dataCadastro'
+    'cotaRestanteHoje', 'totalLancado', 'ativo', 'dataCadastro', 'passwordHash'
   ],
   transacoes: [
     'id', 'clienteId', 'clienteNome', 'clienteTelefone', 'usuarioId',

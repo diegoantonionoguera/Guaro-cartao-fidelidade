@@ -93,9 +93,10 @@ export async function readSheet(sheetName) {
 
 export async function appendObject(sheetName, object) {
   const existing = await request(`/values/${encodeURIComponent(`'${sheetName}'!1:1`)}`);
-  const headers = existing.values?.[0] || Object.keys(object);
+  const currentHeaders = existing.values?.[0] || [];
+  const headers = [...currentHeaders, ...Object.keys(object).filter(key => !currentHeaders.includes(key))];
 
-  if (!existing.values?.length) {
+  if (!existing.values?.length || headers.length !== currentHeaders.length) {
     await request(`/values/${encodeURIComponent(`'${sheetName}'!A1`)}?valueInputOption=RAW`, {
       method: 'PUT',
       body: JSON.stringify({ values: [headers] })
@@ -111,7 +112,8 @@ export async function appendObject(sheetName, object) {
 export async function updateObjectById(sheetName, id, object) {
   const range = encodeURIComponent(`'${sheetName}'!A:ZZ`);
   const data = await request(`/values/${range}`);
-  const [headers = [], ...rows] = data.values || [];
+  const [currentHeaders = [], ...rows] = data.values || [];
+  const headers = [...currentHeaders, ...Object.keys(object).filter(key => !currentHeaders.includes(key))];
   const idColumn = headers.indexOf('id');
 
   if (idColumn === -1) {
@@ -120,6 +122,13 @@ export async function updateObjectById(sheetName, id, object) {
 
   const rowIndex = rows.findIndex(row => String(row[idColumn] ?? '') === String(id));
   if (rowIndex === -1) return false;
+
+  if (headers.length !== currentHeaders.length) {
+    await request(`/values/${encodeURIComponent(`'${sheetName}'!A1`)}?valueInputOption=RAW`, {
+      method: 'PUT',
+      body: JSON.stringify({ values: [headers] })
+    });
+  }
 
   const currentRow = rows[rowIndex];
   const updatedRow = headers.map((header, columnIndex) => (
@@ -135,6 +144,37 @@ export async function updateObjectById(sheetName, id, object) {
     body: JSON.stringify({ values: [updatedRow] })
   });
 
+  return true;
+}
+
+export async function deleteObjectById(sheetName, id) {
+  const range = encodeURIComponent(`'${sheetName}'!A:ZZ`);
+  const data = await request(`/values/${range}`);
+  const [headers = [], ...rows] = data.values || [];
+  const idColumn = headers.indexOf('id');
+  if (idColumn === -1) return false;
+  const rowIndex = rows.findIndex(row => String(row[idColumn] ?? '') === String(id));
+  if (rowIndex === -1) return false;
+
+  const spreadsheet = await request('');
+  const sheet = spreadsheet.sheets?.find(item => item.properties?.title === sheetName);
+  if (!sheet) throw new Error(`A aba "${sheetName}" não foi encontrada.`);
+
+  await request(':batchUpdate', {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId: sheet.properties.sheetId,
+            dimension: 'ROWS',
+            startIndex: rowIndex + 1,
+            endIndex: rowIndex + 2
+          }
+        }
+      }]
+    })
+  });
   return true;
 }
 

@@ -19,107 +19,11 @@ export function renderModals() {
         return renderEstornoTxModal();
     if (activeModal === 'estorno-rd')
         return renderEstornoRdModal();
-    if (activeModal === 'manager-auth')
-        return renderManagerAuthModal();
     if (activeModal === 'user-modal')
         return renderUserModal();
     if (activeModal === 'coupon-modal')
         return renderCouponModal();
     return '';
-}
-function renderManagerAuthModal() {
-    return `
-    <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div class="bg-[#09090b] border border-white/10 rounded-3xl w-full max-w-md shadow-2xl transition-all overflow-hidden animate-fade-in-scale">
-        
-        <!-- Header -->
-        <div class="relative bg-white/[0.02] p-4 sm:p-6 border-b border-white/10">
-          <button
-            id="btn-close-modal"
-            class="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer z-10"
-          >
-            ✕
-          </button>
-          <div class="flex items-center space-x-2.5">
-            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-            </div>
-            <div>
-              <h2 class="text-base font-extrabold text-white">Autenticação de Gerente</h2>
-              <p class="text-xs text-zinc-400">Carlos Eduardo (Gerente)</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Form -->
-        <form id="form-manager-auth" class="p-6 space-y-4">
-          <p class="text-xs text-zinc-300 font-sans leading-relaxed">
-            Para alterar para o perfil do gerente <strong>Carlos Eduardo</strong>, informe as credenciais de acesso abaixo:
-          </p>
-
-          <div class="space-y-1.5">
-            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block font-mono">
-              Login do Gerente
-            </label>
-            <input
-              type="text"
-              name="login"
-              id="input-manager-login"
-              value="177"
-              required
-              placeholder="Digite o login (ex: 177)"
-              class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-white/30 rounded-xl text-sm text-white font-mono placeholder-zinc-500 focus:outline-none"
-            />
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block font-mono">
-              Senha do Gerente
-            </label>
-            <input
-              type="password"
-              name="senha"
-              id="input-manager-password"
-              required
-              placeholder="••••••••"
-              class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-white/30 rounded-xl text-sm text-white font-mono placeholder-zinc-500 focus:outline-none"
-              autofocus
-            />
-          </div>
-
-          ${store.managerAuthError ? `
-            <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs flex items-center space-x-2">
-              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>${store.managerAuthError}</span>
-            </div>
-          ` : ''}
-
-          <!-- Credential hint box -->
-          <div class="p-3 bg-white/[0.02] border border-white/10 rounded-xl flex items-center justify-between text-xs font-mono text-zinc-400">
-            <span>Credenciais:</span>
-            <span>Login: <strong class="text-white">177</strong> | Senha: <strong class="text-white">20022002</strong></span>
-          </div>
-
-          <div class="pt-2 flex items-center space-x-2">
-            <button
-              type="button"
-              id="btn-close-modal-alt"
-              class="w-1/2 py-3 bg-white/5 text-zinc-300 hover:bg-white/10 font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="w-1/2 py-3 bg-white text-black hover:bg-zinc-200 font-bold rounded-xl text-xs uppercase tracking-wider shadow-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5"
-            >
-              <span>Confirmar</span>
-            </button>
-          </div>
-        </form>
-
-      </div>
-    </div>
-  `;
 }
 function renderNewClientModal() {
     return `
@@ -237,6 +141,11 @@ function renderEditClientModal() {
             <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Saldo de pontos</label>
             <input type="number" name="saldoPontos" required min="0" step="1" value="${Number(client.saldoPontos) || 0}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
           </div>
+          ${store.currentUser.perfil === 'gerente' ? `
+            <button type="button" data-action="delete-client" data-client-id="${escapeAttribute(client.id)}" class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-300 rounded-xl text-xs uppercase tracking-wider font-bold">
+              Excluir cliente
+            </button>
+          ` : ''}
           <div class="flex items-center gap-2 pt-2">
             <button type="button" id="btn-close-modal-alt" class="flex-1 py-3 bg-white/5 text-zinc-300 hover:bg-white/10 rounded-xl text-xs uppercase tracking-wider">Cancelar</button>
             <button type="submit" class="flex-1 py-3 bg-gradient-to-r from-[#E32227] to-[#FF7A00] text-white rounded-xl text-xs uppercase tracking-wider font-bold">Salvar alterações</button>
@@ -709,6 +618,20 @@ function renderUserModal() {
               required
               class="w-full p-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-zinc-500"
             />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">${editingUser ? 'Nova senha (opcional)' : 'Senha de acesso'}</label>
+            <input
+              type="password"
+              name="password"
+              minlength="8"
+              ${editingUser ? '' : 'required'}
+              autocomplete="new-password"
+              placeholder="${editingUser ? 'Deixe vazio para manter a senha' : 'Mínimo de 8 caracteres'}"
+              class="w-full p-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-zinc-500"
+            />
+            <p class="text-[10px] text-zinc-500">A senha será protegida antes de ser gravada na planilha.</p>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

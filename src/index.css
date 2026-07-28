@@ -196,6 +196,58 @@
   box-shadow: 0 18px 50px -38px rgba(227, 34, 39, 0.75);
 }
 
+.mobile-primary-nav {
+  order: 2;
+}
+
+.mobile-nav-actions {
+  order: 3;
+}
+
+@media (max-width: 1099px) {
+  .mobile-nav-layout {
+    align-items: stretch;
+  }
+
+  .mobile-brand {
+    min-width: min(100%, 18rem);
+  }
+
+  .mobile-primary-nav {
+    order: 3;
+    width: 100%;
+  }
+
+  .mobile-primary-nav > button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .mobile-nav-actions {
+    order: 2;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 639px) {
+  .mobile-brand {
+    flex-basis: calc(100% - 3.5rem);
+  }
+
+  .mobile-nav-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .mobile-nav-actions > * {
+    min-width: 0;
+  }
+
+  .mobile-profile-select {
+    flex: 1;
+  }
+}
+
 .app-header .brand-mark {
   border-radius: 0.8rem;
 }

@@ -268,45 +268,63 @@ class Store {
         this.notify();
     }
     // --- USER MANAGEMENT ---
-    saveUser(userData) {
-        if (this.editingUserId) {
-            const user = this.users.find(u => u.id === this.editingUserId);
-            if (user) {
-                user.nome = userData.nome;
-                user.login = userData.login;
-                user.perfil = userData.perfil;
-                user.cotaDiariaPontos = userData.cotaDiariaPontos;
-                this.addAuditLog('edicao_config', `Usuário ${user.nome} (${user.login}) atualizado pelo Gerente ${this.currentUser.nome}`);
-                this.showToast(`Usuário ${user.nome} atualizado com sucesso!`);
+    async saveUser(userData) {
+        const editingId = this.editingUserId;
+        try {
+            const response = await fetch(editingId ? `/api/users/${encodeURIComponent(editingId)}` : '/api/users', {
+                method: editingId ? 'PUT' : 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(userData)
+            });
+            const responseText = await response.text();
+            const result = responseText ? JSON.parse(responseText) : {};
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível salvar o usuário.');
+            if (editingId) {
+                const index = this.users.findIndex(user => user.id === editingId);
+                if (index >= 0)
+                    this.users[index] = { ...this.users[index], ...result.user };
+                this.showToast(`Usuário ${result.user.nome} atualizado com sucesso!`);
             }
+            else {
+                this.users.push(result.user);
+                this.showToast(`Usuário ${result.user.nome} cadastrado com sucesso!`);
+            }
+            this.closeModal();
+            return true;
         }
-        else {
-            const newUser = {
-                id: `u-${Date.now()}`,
-                nome: userData.nome,
-                login: userData.login,
-                perfil: userData.perfil,
-                cotaDiariaPontos: userData.cotaDiariaPontos || 500,
-                avatarUrl: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`
-            };
-            this.users.push(newUser);
-            this.addAuditLog('edicao_config', `Novo usuário ${newUser.nome} (${newUser.perfil}) criado pelo Gerente ${this.currentUser.nome}`);
-            this.showToast(`Usuário ${newUser.nome} cadastrado com sucesso!`);
+        catch (error) {
+            this.showToast(error.message || 'Não foi possível salvar o usuário.', 'error');
+            return false;
         }
-        this.closeModal();
     }
-    deleteUser(userId) {
+    async deleteUser(userId) {
         if (userId === this.currentUser.id) {
             this.showToast('Você não pode excluir o usuário atualmente conectado!', 'error');
-            return;
+            return false;
         }
         const user = this.users.find(u => u.id === userId);
         if (!user)
-            return;
+            return false;
+        try {
+            const response = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.error || 'Não foi possível excluir o usuário.');
+            }
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
         this.users = this.users.filter(u => u.id !== userId);
-        this.addAuditLog('edicao_config', `Usuário ${user.nome} (${user.login}) removido pelo Gerente ${this.currentUser.nome}`);
         this.showToast(`Usuário ${user.nome} removido do sistema.`);
         this.notify();
+        return true;
     }
     // --- COUPON MANAGEMENT ---
     saveCoupon(couponData) {
@@ -397,31 +415,28 @@ class Store {
         this.closeModal();
         return true;
     }
-    verifyAndSwitchManager(loginVal, passVal) {
-        const cleanLogin = loginVal.trim();
-        const cleanPass = passVal.trim();
-        if ((cleanLogin === '177' || cleanLogin === 'carlos.gerente') && cleanPass === '20022002') {
-            let gerente = null;
-            if (this.managerAuthTargetUserId) {
-                gerente = this.users.find(u => u.id === this.managerAuthTargetUserId && u.perfil === 'gerente');
+    async deleteClient(clientId) {
+        const client = this.clients.find(item => item.id === clientId);
+        if (!client)
+            return false;
+        try {
+            const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.error || 'Não foi possível excluir o cliente.');
             }
-            if (!gerente) {
-                gerente = this.users.find(u => u.perfil === 'gerente') || this.users.find(u => u.id === 'u-3');
-            }
-            if (gerente) {
-                this.currentUser = gerente;
-                this.addAuditLog('login_usuario', `Autenticação de Gerente (${gerente.nome}) realizada com sucesso.`);
-                this.showToast(`Modo Gerente ativado: ${gerente.nome}`, 'success');
-                this.managerAuthError = null;
-                this.managerAuthTargetUserId = null;
-                this.closeModal();
-                return true;
-            }
+            this.clients = this.clients.filter(item => item.id !== clientId);
+            this.showToast(`Cliente ${client.nome} excluído com sucesso.`);
+            this.closeModal();
+            return true;
         }
-        this.managerAuthError = 'Login ou senha de Gerente incorretos.';
-        this.showToast('Credenciais de Gerente incorretas.', 'error');
-        this.notify();
-        return false;
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
     }
     setClientDetailsTab(tab) {
         this.clientDetailsTab = tab;

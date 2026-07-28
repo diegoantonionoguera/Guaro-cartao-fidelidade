@@ -8,10 +8,10 @@ export function renderNavbar() {
     return `
     <header class="app-header bg-[#161616]/92 backdrop-blur-md sticky top-3 z-40">
       <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div class="mobile-nav-layout flex items-center justify-between min-h-16 sm:h-20 gap-2 py-2 sm:py-0">
+        <div class="mobile-nav-layout flex flex-wrap items-center justify-between min-h-16 gap-2 py-3">
           
           <!-- Logo -->
-          <div class="mobile-brand flex items-center space-x-2 sm:space-x-3 min-w-0">
+          <div class="mobile-brand flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
             <div class="brand-mark w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-black text-lg">
               F
             </div>
@@ -57,7 +57,7 @@ export function renderNavbar() {
           </nav>
 
           <!-- Right Controls -->
-          <div class="mobile-nav-actions flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+          <div class="mobile-nav-actions flex flex-wrap items-center justify-end gap-1.5 sm:gap-3">
             
             <!-- Cota Indicator Button -->
             <div class="relative">
@@ -102,18 +102,10 @@ export function renderNavbar() {
               ` : ''}
             </div>
 
-            <!-- User Select Profile Dropdown -->
-            <div class="relative">
-              <select
-                id="select-user-profile"
-                class="mobile-profile-select bg-white/5 border border-white/10 text-white text-xs font-medium rounded-xl px-2.5 sm:px-3 py-1.5 focus:outline-none focus:border-white/30 font-sans cursor-pointer"
-              >
-                ${store.users.map(u => `
-                  <option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''} class="bg-zinc-900 text-white">
-                    ${u.nome} (${u.perfil === 'gerente' ? 'Gerente' : 'Atendente'})
-                  </option>
-                `).join('')}
-              </select>
+            <!-- Identidade da sessão: não permite assumir outro usuário sem autenticação -->
+            <div class="mobile-profile-select max-w-[12rem] bg-white/5 border border-white/10 text-white rounded-xl px-3 py-1.5">
+              <strong class="block truncate text-[11px] font-semibold">${currentUser.nome}</strong>
+              <span class="block text-[9px] uppercase tracking-wider text-zinc-400">${currentUser.perfil}</span>
             </div>
 
             <!-- SMS Simulator Drawer Toggle Button -->
