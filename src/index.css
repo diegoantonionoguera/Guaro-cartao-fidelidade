@@ -623,22 +623,58 @@ button:active {
 
   .mobile-nav-actions {
     grid-area: actions;
+    display: grid;
+    grid-template-columns: 40% 24% 15% 15%;
+    column-gap: 2%;
+    align-items: center;
     width: 100%;
-    justify-content: space-between;
   }
 
   .daily-counter {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
   }
 
   .daily-counter-button {
     width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .daily-counter-icon,
+  .daily-counter-count {
+    flex: 0 0 auto;
+  }
+
+  .daily-counter-copy {
+    min-width: 0;
+  }
+
+  .daily-counter-copy strong {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .quota-tooltip {
+    right: auto;
+    left: 0;
+    width: min(85vw, 20rem);
   }
 
   .mobile-profile-select {
-    width: 6.5rem;
+    width: 100%;
+    min-width: 0;
     min-height: 44px;
     text-overflow: ellipsis;
+  }
+
+  .mobile-nav-actions > button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0;
+    justify-content: center;
   }
 
   .mobile-result-summary {
@@ -705,7 +741,7 @@ button:active {
   }
 
   .mobile-profile-select {
-    width: 4.75rem;
+    width: 100%;
   }
 
   .daily-counter-copy > span {

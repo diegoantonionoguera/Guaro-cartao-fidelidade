@@ -80,7 +80,7 @@ export function renderNavbar() {
 
               <!-- Quota Info Dropdown Tooltip -->
               ${store.showQuotaTooltip ? `
-                <div class="absolute right-0 mt-2 w-[85vw] max-w-xs bg-[#2E2E2E] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 text-xs backdrop-blur-xl">
+                <div class="quota-tooltip absolute right-0 mt-2 w-[85vw] max-w-xs bg-[#2E2E2E] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 text-xs backdrop-blur-xl">
                   <div class="flex items-center justify-between pb-2 border-b border-white/10">
                     <span class="font-bold uppercase tracking-wider text-zinc-200">Resumo de hoje</span>
                     <span class="text-[9px] uppercase tracking-widest bg-white/10 text-zinc-300 px-2 py-0.5 rounded-full font-mono">
