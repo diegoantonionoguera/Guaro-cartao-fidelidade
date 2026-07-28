@@ -1350,10 +1350,8 @@ async function startServer() {
       server.once('error', reject);
     });
   } catch (error) {
-    console.error('[BOOT_FATAL] Não foi possível iniciar o servidor.');
-    console.error(`[BOOT_FATAL] ${error.message}`);
     console.error('[BOOT_FATAL] Diagnóstico seguro:', environmentDiagnostics());
-    process.exitCode = 1;
+    throw error;
   }
 }
 

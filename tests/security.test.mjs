@@ -20,7 +20,7 @@ async function waitForServer() {
 }
 
 test.before(async () => {
-  server = spawn(process.execPath, ['server.js'], {
+  server = spawn(process.execPath, ['start.js'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -101,7 +101,7 @@ test('bloqueia força bruta após cinco tentativas', async () => {
 
 test('encerra o boot com diagnóstico seguro quando a senha é fraca', async () => {
   const output = [];
-  const invalidServer = spawn(process.execPath, ['server.js'], {
+  const invalidServer = spawn(process.execPath, ['start.js'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -124,6 +124,7 @@ test('encerra o boot com diagnóstico seguro quando a senha é fraca', async () 
   const text = output.join('');
   assert.equal(exitCode, 1);
   assert.match(text, /\[BOOT_FATAL\]/);
+  assert.match(text, /ERRO DETALHADO NA INICIALIZAÇÃO/);
   assert.match(text, /ADMIN_PASSWORD possui 5 caracteres/);
   assert.doesNotMatch(text, /correct-horse|security-test-secret-with/);
 });
