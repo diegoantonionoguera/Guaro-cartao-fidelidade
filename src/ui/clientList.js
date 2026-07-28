@@ -132,9 +132,7 @@ function renderClientCard(client, rewardThreshold) {
               <span>Objetivo Resgate (${rewardThreshold} pts)</span>
               <span>${progressPercent}%</span>
             </div>
-            <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-              <div class="h-full bg-amber-400 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
-            </div>
+            <progress class="secure-progress secure-progress-compact w-full" max="100" value="${progressPercent}" aria-label="${progressPercent}% do objetivo de resgate"></progress>
           </div>
         </div>
       </div>

@@ -39,6 +39,11 @@ const schemas = {
     'id', 'dataHora', 'acao', 'usuarioId', 'usuarioNome', 'usuarioPerfil',
     'detalhes', 'categoria', 'comandaRef', 'clienteRef', 'ip'
   ],
+  pontos_ledger: [
+    'id', 'dataHora', 'clienteId', 'clienteNome', 'tipo', 'pontos',
+    'saldoAnterior', 'saldoPosterior', 'referenciaTipo', 'referenciaId',
+    'comandaRef', 'usuarioId', 'usuarioNome', 'motivo'
+  ],
   configuracao: [
     'nomeEstabelecimento', 'taxaConversaoReais', 'valorResgatePontos',
     'valorResgateReais', 'cotaDiariaPadrao', 'expiracaoCodigoMinutos'

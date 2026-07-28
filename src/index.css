@@ -5,6 +5,35 @@
 @import "@fontsource/bebas-neue/latin-400.css";
 @import "tailwindcss";
 
+.secure-progress {
+  appearance: none;
+  display: block;
+  height: 0.75rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.secure-progress-compact {
+  height: 0.375rem;
+}
+
+.secure-progress::-webkit-progress-bar {
+  border-radius: inherit;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.secure-progress::-webkit-progress-value {
+  border-radius: inherit;
+  background: #FFC529;
+}
+
+.secure-progress::-moz-progress-bar {
+  border-radius: inherit;
+  background: #FFC529;
+}
+
 @theme {
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bebas Neue", "Arial Narrow", sans-serif;

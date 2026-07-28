@@ -30,38 +30,35 @@ class Store {
     managerAuthError = null;
     managerAuthTargetUserId = null;
     clientDetailsTab = 'lancamentos';
+    reconciliation = null;
+    reconciliationLoading = false;
     // Toast notification
     toast = null;
     listeners = [];
     lastServerSnapshot = '';
+    csrfToken = '';
+    pendingMutations = new Set();
     constructor() {
-        // Load from LocalStorage if available
-        const savedUsers = localStorage.getItem('fidelidade_users');
-        const savedCoupons = localStorage.getItem('fidelidade_coupons');
-        const savedClients = localStorage.getItem('fidelidade_clients');
-        const savedTx = localStorage.getItem('fidelidade_transactions');
-        const savedRd = localStorage.getItem('fidelidade_redemptions');
-        const savedAudit = localStorage.getItem('fidelidade_audit');
-        const savedSms = localStorage.getItem('fidelidade_sms');
-        const savedConfig = localStorage.getItem('fidelidade_config');
-        this.users = savedUsers ? JSON.parse(savedUsers) : [...INITIAL_USERS];
-        this.coupons = savedCoupons ? JSON.parse(savedCoupons) : [...INITIAL_COUPONS];
+        // Dados reais são carregados apenas da API autenticada.
+        this.users = [...INITIAL_USERS];
+        this.coupons = [...INITIAL_COUPONS];
         this.currentUser = this.users[0] || INITIAL_USERS[0]; // Ana Silva (Atendente) by default
-        this.config = savedConfig ? JSON.parse(savedConfig) : { ...INITIAL_CONFIG };
-        this.clients = savedClients ? JSON.parse(savedClients) : [...INITIAL_CLIENTS];
-        this.transactions = savedTx ? JSON.parse(savedTx) : [...INITIAL_TRANSACTIONS];
-        this.redemptions = savedRd ? JSON.parse(savedRd) : [...INITIAL_REDEMPTIONS];
-        this.auditLogs = savedAudit ? JSON.parse(savedAudit) : [...INITIAL_AUDIT_LOGS];
-        this.smsLogs = savedSms ? JSON.parse(savedSms) : [...INITIAL_SMS_LOGS];
+        this.config = { ...INITIAL_CONFIG };
+        this.clients = [...INITIAL_CLIENTS];
+        this.transactions = [...INITIAL_TRANSACTIONS];
+        this.redemptions = [...INITIAL_REDEMPTIONS];
+        this.auditLogs = [...INITIAL_AUDIT_LOGS];
+        this.smsLogs = [...INITIAL_SMS_LOGS];
         this.restoreSession();
     }
     async restoreSession() {
         try {
-            const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
+            const response = await this.request('/api/auth/session', { credentials: 'same-origin' });
             if (!response.ok)
                 return;
-            const { user } = await response.json();
+            const { user, csrfToken } = await response.json();
             this.currentUser = user;
+            this.csrfToken = csrfToken || '';
             this.isAuthenticated = true;
             await this.loadStateFromDatabase();
         }
@@ -75,7 +72,14 @@ class Store {
     async loadStateFromDatabase(options = {}) {
         const { notify = true } = options;
         try {
-            const res = await fetch('/api/state', { credentials: 'same-origin' });
+            const res = await this.request('/api/state', { credentials: 'same-origin' });
+            if (res.status === 401) {
+                this.isAuthenticated = false;
+                this.csrfToken = '';
+                if (notify)
+                    this.notify();
+                return true;
+            }
             if (res.ok) {
                 const data = await res.json();
                 const serverSnapshot = JSON.stringify(data);
@@ -176,6 +180,37 @@ class Store {
     saveToStorage() {
         // Dados pessoais e operacionais não são persistidos no navegador.
     }
+    async request(url, options = {}) {
+        const method = String(options.method || 'GET').toUpperCase();
+        const headers = { ...(options.headers || {}) };
+        const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+        const mutationKey = `${method}:${url}`;
+        if (isMutation && this.pendingMutations.has(mutationKey))
+            throw new Error('Esta ação já está sendo processada. Aguarde a confirmação.');
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && this.csrfToken)
+            headers['x-csrf-token'] = this.csrfToken;
+        if (isMutation) this.pendingMutations.add(mutationKey);
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers,
+                signal: options.signal || AbortSignal.timeout(45_000)
+            });
+            if (response.status === 401 && !String(url).includes('/api/auth/login')) {
+                this.isAuthenticated = false;
+                this.csrfToken = '';
+            }
+            return response;
+        }
+        catch (error) {
+            if (error.name === 'TimeoutError')
+                throw new Error('O servidor demorou para responder. Verifique a conexão antes de repetir a ação.');
+            throw error;
+        }
+        finally {
+            if (isMutation) this.pendingMutations.delete(mutationKey);
+        }
+    }
     showToast(message, type = 'success') {
         this.toast = { message, type, id: Date.now() };
         this.notify();
@@ -188,7 +223,7 @@ class Store {
     }
     async login(loginVal, passVal) {
         try {
-            const response = await fetch('/api/auth/login', {
+            const response = await this.request('/api/auth/login', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -210,6 +245,7 @@ class Store {
                 throw new Error('O servidor não retornou uma sessão válida.');
             this.isAuthenticated = true;
             this.currentUser = data.user;
+            this.csrfToken = data.csrfToken || '';
             this.loginError = null;
             this.showToast('Bem-vindo! Login realizado com sucesso.', 'success');
             await this.loadStateFromDatabase();
@@ -224,23 +260,12 @@ class Store {
         }
     }
     async logout() {
-        await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => { });
+        await this.request('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => { });
         this.isAuthenticated = false;
+        this.csrfToken = '';
         this.loginError = null;
         this.showToast('Sessão encerrada.', 'info');
         this.notify();
-    }
-    setCurrentUser(userId) {
-        const found = this.users.find(u => u.id === userId);
-        if (found) {
-            this.currentUser = found;
-            this.addAuditLog('login_usuario', `Sessão alterada para operador ${found.nome} (${found.perfil})`);
-            if (found.perfil === 'atendente' && this.activeTab === 'manager') {
-                this.activeTab = 'dashboard';
-            }
-            this.showToast(`Operador alterado para ${found.nome}`, 'info');
-            this.notify();
-        }
     }
     setActiveTab(tab) {
         this.activeTab = tab;
@@ -311,7 +336,7 @@ class Store {
     async saveUser(userData) {
         const editingId = this.editingUserId;
         try {
-            const response = await fetch(editingId ? `/api/users/${encodeURIComponent(editingId)}` : '/api/users', {
+            const response = await this.request(editingId ? `/api/users/${encodeURIComponent(editingId)}` : '/api/users', {
                 method: editingId ? 'PUT' : 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -348,7 +373,7 @@ class Store {
         if (!user)
             return false;
         try {
-            const response = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+            const response = await this.request(`/api/users/${encodeURIComponent(userId)}`, {
                 method: 'DELETE',
                 credentials: 'same-origin'
             });
@@ -370,7 +395,7 @@ class Store {
     async saveCoupon(couponData, couponId = null) {
         const editingId = couponId || this.editingCouponId;
         try {
-            const response = await fetch(editingId ? `/api/coupons/${encodeURIComponent(editingId)}` : '/api/coupons', {
+            const response = await this.request(editingId ? `/api/coupons/${encodeURIComponent(editingId)}` : '/api/coupons', {
                 method: editingId ? 'PUT' : 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -408,7 +433,7 @@ class Store {
         if (!cup)
             return false;
         try {
-            const response = await fetch(`/api/coupons/${encodeURIComponent(couponId)}`, {
+            const response = await this.request(`/api/coupons/${encodeURIComponent(couponId)}`, {
                 method: 'DELETE',
                 credentials: 'same-origin'
             });
@@ -442,7 +467,7 @@ class Store {
             cpf: data.cpf?.trim() || ''
         };
         try {
-            const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+            const response = await this.request(`/api/clients/${encodeURIComponent(clientId)}`, {
                 method: 'PUT',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -470,7 +495,7 @@ class Store {
         if (!client)
             return false;
         try {
-            const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+            const response = await this.request(`/api/clients/${encodeURIComponent(clientId)}`, {
                 method: 'DELETE',
                 credentials: 'same-origin'
             });
@@ -566,7 +591,7 @@ class Store {
     async registerNewClient(nome, telefone, email, cpf) {
         let newClient;
         try {
-            const response = await fetch('/api/clients', {
+            const response = await this.request('/api/clients', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -582,8 +607,6 @@ class Store {
             return null;
         }
         this.clients.unshift(newClient);
-        this.addAuditLog('cadastro_cliente', `Novo cliente cadastrado: ${nome}`, undefined, telefone);
-        this.sendSms(telefone, nome, `Bem-vindo ao Clube de Fidelidade do ${this.config.nomeEstabelecimento}! Faça suas compras e troque pontos por prêmios e descontos exclusivos! 🎁`, 'boas_vindas');
         this.showToast(`Cliente ${nome} cadastrado com sucesso!`);
         this.closeModal();
         return newClient;
@@ -593,7 +616,7 @@ class Store {
         if (!client)
             return false;
         try {
-            const response = await fetch('/api/transactions', {
+            const response = await this.request('/api/transactions', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -629,7 +652,7 @@ class Store {
         if (!client)
             return false;
         try {
-            const response = await fetch(`/api/transactions/${encodeURIComponent(txId)}/approve`, {
+            const response = await this.request(`/api/transactions/${encodeURIComponent(txId)}/approve`, {
                 method: 'POST',
                 credentials: 'same-origin'
             });
@@ -656,7 +679,7 @@ class Store {
         if (!tx || tx.status !== 'pendente')
             return false;
         try {
-            const response = await fetch(`/api/transactions/${encodeURIComponent(txId)}/reject`, {
+            const response = await this.request(`/api/transactions/${encodeURIComponent(txId)}/reject`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -685,7 +708,7 @@ class Store {
             return false;
         const client = this.clients.find(c => c.id === tx.clienteId);
         try {
-            const response = await fetch(`/api/transactions/${encodeURIComponent(txId)}/reverse`, {
+            const response = await this.request(`/api/transactions/${encodeURIComponent(txId)}/reverse`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -717,7 +740,7 @@ class Store {
             return null;
         }
         try {
-            const response = await fetch('/api/redemptions/request', {
+            const response = await this.request('/api/redemptions/request', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -750,7 +773,7 @@ class Store {
             return false;
         const client = this.clients.find(c => c.id === rd.clienteId);
         try {
-            const response = await fetch(`/api/redemptions/${encodeURIComponent(redemptionId)}/confirm`, {
+            const response = await this.request(`/api/redemptions/${encodeURIComponent(redemptionId)}/confirm`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -781,7 +804,7 @@ class Store {
             return false;
         const client = this.clients.find(c => c.id === rd.clienteId);
         try {
-            const response = await fetch(`/api/redemptions/${encodeURIComponent(rdId)}/reverse`, {
+            const response = await this.request(`/api/redemptions/${encodeURIComponent(rdId)}/reverse`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -809,7 +832,7 @@ class Store {
         }
         const config = { ...this.config, ...newConfig };
         try {
-            const response = await fetch('/api/config', {
+            const response = await this.request('/api/config', {
                 method: 'PUT',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -826,6 +849,33 @@ class Store {
         catch (error) {
             this.showToast(error.message, 'error');
             return false;
+        }
+    }
+    async runPointsReconciliation() {
+        if (this.currentUser.perfil !== 'gerente' || this.reconciliationLoading)
+            return false;
+        this.reconciliationLoading = true;
+        this.notify();
+        try {
+            const response = await this.request('/api/reconciliation', { credentials: 'same-origin' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível verificar os saldos.');
+            this.reconciliation = result;
+            const issues = Number(result.summary?.divergent || 0) + Number(result.summary?.duplicateReferences || 0);
+            this.showToast(
+                issues ? `${issues} inconsistência(s) encontrada(s).` : 'Saldos verificados sem divergências.',
+                issues ? 'error' : 'success'
+            );
+            return true;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
+        finally {
+            this.reconciliationLoading = false;
+            this.notify();
         }
     }
 }

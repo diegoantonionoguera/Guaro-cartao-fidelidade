@@ -608,16 +608,47 @@ export function renderManagerPanel() {
               Registros de Auditoria (${filteredAuditLogs.length})
             </h2>
 
-            <div class="relative w-full sm:w-64">
-              <input
-                type="text"
-                id="input-audit-search"
-                value="${store.auditSearchQuery}"
-                placeholder="Filtrar auditoria..."
-                class="w-full pl-3 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-xl text-xs text-white focus:border-white/30"
-              />
+            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                id="btn-run-reconciliation"
+                ${store.reconciliationLoading ? 'disabled' : ''}
+                class="px-3 py-2 rounded-xl bg-amber-400 text-black text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+              >
+                ${store.reconciliationLoading ? 'Verificando...' : 'Verificar saldos'}
+              </button>
+              <div class="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  id="input-audit-search"
+                  value="${store.auditSearchQuery}"
+                  placeholder="Filtrar auditoria..."
+                  class="w-full pl-3 pr-3 py-2 bg-white/[0.04] border border-white/10 rounded-xl text-xs text-white focus:border-white/30"
+                />
+              </div>
             </div>
           </div>
+
+          ${store.reconciliation ? `
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" role="status" aria-live="polite">
+              <div class="rounded-xl bg-white/[0.03] p-3">
+                <span class="block text-[10px] text-zinc-500">Clientes verificados</span>
+                <strong class="text-white">${store.reconciliation.summary.clients}</strong>
+              </div>
+              <div class="rounded-xl bg-emerald-500/10 p-3">
+                <span class="block text-[10px] text-emerald-300">Saldos corretos</span>
+                <strong class="text-emerald-200">${store.reconciliation.summary.ok}</strong>
+              </div>
+              <div class="rounded-xl bg-red-500/10 p-3">
+                <span class="block text-[10px] text-red-300">Divergências</span>
+                <strong class="text-red-200">${store.reconciliation.summary.divergent}</strong>
+              </div>
+              <div class="rounded-xl bg-amber-500/10 p-3">
+                <span class="block text-[10px] text-amber-300">Sem histórico</span>
+                <strong class="text-amber-200">${store.reconciliation.summary.withoutHistory}</strong>
+              </div>
+            </div>
+          ` : ''}
 
           <div class="bg-[#09090b] border border-white/10 rounded-2xl overflow-hidden backdrop-blur-md">
             <div class="overflow-x-auto">

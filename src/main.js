@@ -6,6 +6,7 @@ import { renderModals } from './ui/modals';
 import { renderSmsDrawer } from './ui/smsDrawer';
 import { renderToast } from './ui/toast';
 import { renderLoginView } from './ui/login';
+import { setSafeHtml } from './ui/safeHtml';
 let currentPendingRedemption = null;
 let redemptionTimerId = null;
 let autoSyncTimerId = null;
@@ -91,21 +92,19 @@ function renderSalesVolumeChart(container) {
     });
     const rows = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
     const maximum = Math.max(...rows.map(([, total]) => total), 1);
-    container.innerHTML = rows.length ? `
+    setSafeHtml(container, rows.length ? `
         <div class="space-y-4">
           <h3 class="text-sm font-extrabold text-white">Volume de vendas por atendente</h3>
           <div class="space-y-3">
             ${rows.map(([name, total]) => `
               <div class="grid grid-cols-[120px_1fr_100px] items-center gap-3 text-xs">
                 <span class="truncate text-zinc-300">${name}</span>
-                <div class="h-3 rounded-full bg-white/10 overflow-hidden" role="img" aria-label="${name}: R$ ${total.toFixed(2)}">
-                  <div class="h-full rounded-full bg-amber-400" style="width:${Math.max(3, total / maximum * 100)}%"></div>
-                </div>
+                <progress class="secure-progress w-full" max="100" value="${Math.max(3, total / maximum * 100)}" aria-label="${name}: R$ ${total.toFixed(2)}"></progress>
                 <strong class="text-right text-amber-400">${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
               </div>
-            `).join('')}
+    `).join('')}
           </div>
-        </div>` : '<p class="py-8 text-center text-xs text-zinc-500">Nenhuma venda aprovada.</p>';
+        </div>` : '<p class="py-8 text-center text-xs text-zinc-500">Nenhuma venda aprovada.</p>');
 }
 function renderApp() {
     const navbarContainer = document.getElementById('navbar-container');
@@ -115,28 +114,28 @@ function renderApp() {
     const toastContainer = document.getElementById('toast-container');
     if (!store.isAuthenticated) {
         if (navbarContainer)
-            navbarContainer.innerHTML = '';
+            setSafeHtml(navbarContainer, '');
         if (mainContainer)
-            mainContainer.innerHTML = renderLoginView();
+            setSafeHtml(mainContainer, renderLoginView());
         if (modalsContainer)
-            modalsContainer.innerHTML = '';
+            setSafeHtml(modalsContainer, '');
         if (smsDrawerContainer)
-            smsDrawerContainer.innerHTML = '';
+            setSafeHtml(smsDrawerContainer, '');
         if (toastContainer)
-            toastContainer.innerHTML = renderToast();
+            setSafeHtml(toastContainer, renderToast());
         return;
     }
     if (navbarContainer)
-        navbarContainer.innerHTML = renderNavbar();
+        setSafeHtml(navbarContainer, renderNavbar());
     if (mainContainer) {
-        mainContainer.innerHTML = store.activeTab === 'dashboard' ? renderClientList() : renderManagerPanel();
+        setSafeHtml(mainContainer, store.activeTab === 'dashboard' ? renderClientList() : renderManagerPanel());
     }
     if (modalsContainer)
-        modalsContainer.innerHTML = renderModals();
+        setSafeHtml(modalsContainer, renderModals());
     if (smsDrawerContainer)
-        smsDrawerContainer.innerHTML = renderSmsDrawer();
+        setSafeHtml(smsDrawerContainer, renderSmsDrawer());
     if (toastContainer)
-        toastContainer.innerHTML = renderToast();
+        setSafeHtml(toastContainer, renderToast());
     const chartMount = document.getElementById('recharts-sales-volume-mount');
     if (chartMount)
         renderSalesVolumeChart(chartMount);
@@ -190,6 +189,10 @@ function setupEventDelegation() {
         }
         if (target.closest('#btn-mark-all-sms-read')) {
             store.markAllSmsAsRead();
+            return;
+        }
+        if (target.closest('#btn-run-reconciliation')) {
+            await store.runPointsReconciliation();
             return;
         }
         // Client Actions
