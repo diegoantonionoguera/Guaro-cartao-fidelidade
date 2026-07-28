@@ -224,11 +224,12 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/state', requireAuth, async (_req, res) => {
   if (!isSheetsConfigured()) return res.status(503).json({ error: 'Planilha ainda não configurada.' });
   try {
-    const [clients, users, transactions, redemptions, smsLogs, auditLogs, configRows] = await Promise.all([
-      readSheet('clientes'), readSheet('usuarios'), readSheet('transacoes'),
-      readSheet('resgates'), readSheet('sms_logs'), readSheet('auditoria'), readSheet('configuracao')
+    const [clients, users, coupons, transactions, redemptions, smsLogs, auditLogs, configRows] = await Promise.all([
+      readSheet('clientes'), readSheet('usuarios'), readSheet('cupons'),
+      readSheet('transacoes'), readSheet('resgates'), readSheet('sms_logs'),
+      readSheet('auditoria'), readSheet('configuracao')
     ]);
-    res.json({ clients, users: users.map(publicUser), transactions, redemptions, smsLogs, auditLogs, config: configRows[0] || {} });
+    res.json({ clients, users: users.map(publicUser), coupons, transactions, redemptions, smsLogs, auditLogs, config: configRows[0] || {} });
   } catch (error) {
     console.error(error);
     res.status(502).json({ error: 'Não foi possível ler a planilha.' });
@@ -317,6 +318,67 @@ app.delete('/api/clients/:id', requireAuth, requireManager, async (req, res) => 
   } catch (error) {
     console.error(error);
     res.status(502).json({ error: 'Não foi possível excluir o cliente da planilha.' });
+  }
+});
+
+app.post('/api/coupons', requireAuth, requireManager, async (req, res) => {
+  const titulo = cleanText(req.body?.titulo, 120);
+  const descricao = cleanText(req.body?.descricao, 300);
+  const pontosNecessarios = Number(req.body?.pontosNecessarios);
+  const valorDescontoReais = Number(req.body?.valorDescontoReais);
+  const ativo = req.body?.ativo !== false;
+  if (titulo.length < 2 || descricao.length < 2 || !Number.isInteger(pontosNecessarios) || pontosNecessarios <= 0 || !Number.isFinite(valorDescontoReais) || valorDescontoReais <= 0) {
+    return res.status(400).json({ error: 'Preencha corretamente o título, descrição, pontos e desconto.' });
+  }
+  const coupon = {
+    id: crypto.randomUUID(), titulo, descricao, pontosNecessarios,
+    valorDescontoReais, categoria: cleanText(req.body?.categoria, 60) || 'Fidelidade',
+    ativo, dataCadastro: new Date().toISOString().slice(0, 10)
+  };
+  try {
+    await appendObject('cupons', coupon);
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'cadastro_cupom',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Cupom criado: ${titulo}`, categoria: 'CUPONS', ip: req.ip
+    });
+    res.status(201).json({ coupon });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível salvar o cupom na planilha.' });
+  }
+});
+
+app.put('/api/coupons/:id', requireAuth, requireManager, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  const titulo = cleanText(req.body?.titulo, 120);
+  const descricao = cleanText(req.body?.descricao, 300);
+  const pontosNecessarios = Number(req.body?.pontosNecessarios);
+  const valorDescontoReais = Number(req.body?.valorDescontoReais);
+  const ativo = req.body?.ativo !== false;
+  if (!id || titulo.length < 2 || descricao.length < 2 || !Number.isInteger(pontosNecessarios) || pontosNecessarios <= 0 || !Number.isFinite(valorDescontoReais) || valorDescontoReais <= 0) {
+    return res.status(400).json({ error: 'Dados do cupom inválidos.' });
+  }
+  const changes = { titulo, descricao, pontosNecessarios, valorDescontoReais, ativo };
+  try {
+    const updated = await updateObjectById('cupons', id, changes);
+    if (!updated) return res.status(404).json({ error: 'Cupom não encontrado na planilha.' });
+    res.json({ coupon: { id, ...changes } });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível atualizar o cupom.' });
+  }
+});
+
+app.delete('/api/coupons/:id', requireAuth, requireManager, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  try {
+    const removed = await deleteObjectById('cupons', id);
+    if (!removed) return res.status(404).json({ error: 'Cupom não encontrado.' });
+    res.status(204).end();
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível excluir o cupom.' });
   }
 });
 

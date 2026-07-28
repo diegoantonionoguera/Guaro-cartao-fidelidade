@@ -58,6 +58,39 @@ const initialConfig = {
   expiracaoCodigoMinutos: 1
 };
 
+const initialCoupons = [
+  {
+    id: 'cup-1',
+    titulo: 'R$ 10 OFF',
+    descricao: 'Desconto de R$ 10,00 em qualquer pedido elegível',
+    pontosNecessarios: 100,
+    valorDescontoReais: 10,
+    categoria: 'Fidelidade',
+    ativo: true,
+    dataCadastro: new Date().toISOString().slice(0, 10)
+  },
+  {
+    id: 'cup-2',
+    titulo: 'R$ 20 OFF',
+    descricao: 'Desconto de R$ 20,00 em qualquer pedido elegível',
+    pontosNecessarios: 180,
+    valorDescontoReais: 20,
+    categoria: 'Fidelidade',
+    ativo: true,
+    dataCadastro: new Date().toISOString().slice(0, 10)
+  },
+  {
+    id: 'cup-3',
+    titulo: 'R$ 30 OFF no Combo Gourmet',
+    descricao: 'Desconto de R$ 30,00 válido para combos e hambúrgueres duplos',
+    pontosNecessarios: 250,
+    valorDescontoReais: 30,
+    categoria: 'Combos',
+    ativo: true,
+    dataCadastro: new Date().toISOString().slice(0, 10)
+  }
+];
+
 function requireEnvironment() {
   const required = [
     'GOOGLE_SHEETS_ID',
@@ -134,6 +167,15 @@ async function main() {
     console.log('DADOS INICIAIS: configuração adicionada');
   } else {
     console.log('DADOS INICIAIS: configuração já existente, preservada');
+  }
+
+  const couponsSheet = configuredSheets.cupons;
+  const couponRows = await couponsSheet.getRows({ limit: 1 });
+  if (couponRows.length === 0) {
+    await couponsSheet.addRows(initialCoupons);
+    console.log('DADOS INICIAIS: cupons adicionados');
+  } else {
+    console.log('DADOS INICIAIS: cupons já existentes, preservados');
   }
 
   console.log('Configuração da planilha concluída com sucesso.');

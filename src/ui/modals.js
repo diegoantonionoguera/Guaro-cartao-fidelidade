@@ -280,9 +280,11 @@ function renderRedemptionModal() {
     const client = store.clients.find(c => c.id === store.modalClientId);
     if (!client)
         return '';
-    const rewardThreshold = store.config.valorResgatePontos;
-    const rewardValueR$ = store.config.valorResgateReais;
-    const canRedeem = client.saldoPontos >= rewardThreshold;
+    const activeCoupons = store.coupons.filter(coupon => coupon.ativo);
+    const selectedCoupon = activeCoupons.find(coupon => coupon.id === store.selectedCouponIdForRedemption);
+    const rewardThreshold = Number(selectedCoupon?.pontosNecessarios || 0);
+    const rewardValueR$ = Number(selectedCoupon?.valorDescontoReais || 0);
+    const canRedeem = Boolean(selectedCoupon) && Number(client.saldoPontos) >= rewardThreshold;
     const pending = store.pendingRedemption;
     return `
     <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -306,22 +308,71 @@ function renderRedemptionModal() {
         </div>
 
         <div class="p-6 space-y-5">
-          <!-- Points summary box -->
-          <div class="bg-black/40 border border-white/10 p-4 rounded-2xl flex items-center justify-between font-mono">
-            <div>
-              <div class="text-[10px] text-zinc-400 uppercase font-bold">Saldo Disponível</div>
-              <div class="text-2xl font-black text-amber-400">${client.saldoPontos} pts</div>
+          <section class="space-y-3">
+            <div class="flex items-end justify-between gap-3">
+              <div>
+                <h3 class="text-lg text-white">Escolha o cupom</h3>
+                <p class="text-xs text-zinc-400">${activeCoupons.length} ${activeCoupons.length === 1 ? 'opção ativa' : 'opções ativas'}</p>
+              </div>
+              <span class="text-xs font-semibold text-amber-300">${client.saldoPontos} pts disponíveis</span>
             </div>
-            <div class="text-right">
-              <div class="text-[10px] text-zinc-400 uppercase font-bold">Valor do Desconto</div>
-              <div class="text-lg font-bold text-emerald-400">R$ ${rewardValueR$.toFixed(2)} OFF</div>
+
+            ${activeCoupons.length ? `
+              <div class="grid grid-cols-1 gap-2" role="radiogroup" aria-label="Cupons disponíveis para resgate">
+                ${activeCoupons.map(coupon => {
+        const affordable = Number(client.saldoPontos) >= Number(coupon.pontosNecessarios);
+        const selected = coupon.id === selectedCoupon?.id;
+        return `
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked="${selected}"
+                      data-action="select-redemption-coupon"
+                      data-coupon-id="${coupon.id}"
+                      ${!affordable || pending ? 'disabled' : ''}
+                      class="coupon-choice ${selected ? 'coupon-choice-selected' : ''} ${!affordable ? 'coupon-choice-disabled' : ''}"
+                    >
+                      <span class="min-w-0 text-left">
+                        <strong class="block truncate text-sm text-white">${coupon.titulo}</strong>
+                        <span class="block mt-0.5 truncate text-[11px] text-zinc-400">${coupon.descricao}</span>
+                      </span>
+                      <span class="shrink-0 text-right">
+                        <strong class="block text-sm text-amber-300">${coupon.pontosNecessarios} pts</strong>
+                        <span class="block text-[11px] text-emerald-300">R$ ${Number(coupon.valorDescontoReais).toFixed(2)} OFF</span>
+                      </span>
+                    </button>
+                  `;
+    }).join('')}
+              </div>
+            ` : `
+              <div class="p-4 rounded-xl border border-orange-500/25 bg-orange-500/10 text-sm text-orange-200">
+                Nenhum cupom ativo está disponível. Peça ao gerente para cadastrar ou ativar um cupom.
+              </div>
+            `}
+          </section>
+
+          ${selectedCoupon ? `
+            <div class="bg-black/40 border border-white/10 p-4 rounded-2xl flex items-center justify-between">
+              <div>
+                <div class="text-[10px] text-zinc-400 uppercase font-bold">Cupom selecionado</div>
+                <div class="text-sm font-semibold text-white">${selectedCoupon.titulo}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-zinc-400 uppercase font-bold">Desconto</div>
+                <div class="text-lg font-bold text-emerald-400">R$ ${rewardValueR$.toFixed(2)} OFF</div>
+              </div>
             </div>
-          </div>
+          ` : ''}
 
           ${!client.email ? `
             <div class="bg-red-950/40 border border-red-500/30 p-4 rounded-2xl text-xs text-red-200 space-y-1">
               <div class="font-bold">E-mail necessário</div>
               <p>Edite o cadastro do cliente e informe um e-mail válido antes de iniciar o resgate.</p>
+            </div>
+          ` : activeCoupons.length === 0 ? '' : !selectedCoupon ? `
+            <div class="bg-red-950/40 border border-red-500/30 p-4 rounded-2xl text-xs text-red-200 space-y-1">
+              <div class="font-bold">Saldo insuficiente</div>
+              <p>Nenhum dos cupons ativos pode ser resgatado com o saldo atual do cliente.</p>
             </div>
           ` : !canRedeem ? `
             <div class="bg-red-950/40 border border-red-500/30 p-4 rounded-2xl text-xs text-red-200 space-y-1">

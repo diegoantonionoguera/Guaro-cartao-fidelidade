@@ -190,8 +190,22 @@ function setupEventDelegation() {
         const deleteCouponBtn = target.closest('[data-action="delete-coupon"]');
         if (deleteCouponBtn) {
             const couponId = deleteCouponBtn.dataset.couponId;
+            if (couponId && window.confirm('Excluir este cupom da planilha?'))
+                await store.deleteCoupon(couponId);
+            return;
+        }
+        const toggleCouponBtn = target.closest('[data-action="toggle-coupon"]');
+        if (toggleCouponBtn) {
+            const couponId = toggleCouponBtn.dataset.couponId;
             if (couponId)
-                store.deleteCoupon(couponId);
+                await store.toggleCouponStatus(couponId);
+            return;
+        }
+        const selectRedemptionCoupon = target.closest('[data-action="select-redemption-coupon"]');
+        if (selectRedemptionCoupon && !store.pendingRedemption) {
+            const couponId = selectRedemptionCoupon.dataset.couponId;
+            if (couponId)
+                store.selectCouponForRedemption(couponId);
             return;
         }
         const addPtsBtn = target.closest('[data-action="add-points"]');
@@ -282,8 +296,19 @@ function setupEventDelegation() {
         if (generateEmailBtn) {
             const clientId = generateEmailBtn.dataset.clientId;
             if (clientId) {
+                const selectedCoupon = store.coupons.find(coupon => coupon.id === store.selectedCouponIdForRedemption);
+                if (!selectedCoupon) {
+                    store.showToast('Selecione um cupom disponível para continuar.', 'error');
+                    return;
+                }
                 generateEmailBtn.disabled = true;
-                const rd = await store.createRedemptionRequest(clientId, store.config.valorResgatePontos, store.config.valorResgateReais);
+                const rd = await store.createRedemptionRequest(
+                    clientId,
+                    Number(selectedCoupon.pontosNecessarios),
+                    Number(selectedCoupon.valorDescontoReais),
+                    selectedCoupon.id,
+                    selectedCoupon.titulo
+                );
                 if (rd) {
                     currentPendingRedemption = rd;
                     startRedemptionTimer(rd);
@@ -428,7 +453,7 @@ function setupEventDelegation() {
                 store.showToast('Preencha todos os campos do cupom corretamente.', 'error');
             }
             else {
-                store.saveCoupon({ titulo, descricao, pontosNecessarios, valorDescontoReais, ativo });
+                await store.saveCoupon({ titulo, descricao, pontosNecessarios, valorDescontoReais, ativo });
             }
             return;
         }

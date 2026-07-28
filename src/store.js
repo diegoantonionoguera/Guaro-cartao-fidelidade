@@ -84,6 +84,8 @@ class Store {
                     if (refreshedCurrentUser)
                         this.currentUser = refreshedCurrentUser;
                 }
+                if (data.coupons)
+                    this.coupons = data.coupons;
                 if (data.transactions) {
                     this.transactions = data.transactions.map((t) => ({
                         id: t.id,
@@ -244,6 +246,11 @@ class Store {
         this.managerAuthError = null;
         if (modal === 'add-points' || modal === 'redemption' || modal === 'client-details') {
             this.modalClientId = id || null;
+            if (modal === 'redemption') {
+                const client = this.clients.find(item => item.id === id);
+                const firstAvailable = this.coupons.find(coupon => coupon.ativo && Number(coupon.pontosNecessarios) <= Number(client?.saldoPontos || 0));
+                this.selectedCouponIdForRedemption = firstAvailable?.id || null;
+            }
         }
         else if (modal === 'reject-tx' || modal === 'estorno-tx') {
             this.modalTxId = id || null;
@@ -335,51 +342,67 @@ class Store {
         return true;
     }
     // --- COUPON MANAGEMENT ---
-    saveCoupon(couponData) {
-        if (this.editingCouponId) {
-            const cup = this.coupons.find(c => c.id === this.editingCouponId);
-            if (cup) {
-                cup.titulo = couponData.titulo;
-                cup.descricao = couponData.descricao;
-                cup.pontosNecessarios = couponData.pontosNecessarios;
-                cup.valorDescontoReais = couponData.valorDescontoReais;
-                cup.ativo = couponData.ativo;
-                this.addAuditLog('edicao_config', `Cupom "${cup.titulo}" atualizado pelo Gerente ${this.currentUser.nome}`);
-                this.showToast(`Cupom "${cup.titulo}" atualizado!`);
+    async saveCoupon(couponData, couponId = null) {
+        const editingId = couponId || this.editingCouponId;
+        try {
+            const response = await fetch(editingId ? `/api/coupons/${encodeURIComponent(editingId)}` : '/api/coupons', {
+                method: editingId ? 'PUT' : 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(couponData)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível salvar o cupom.');
+            if (editingId) {
+                const index = this.coupons.findIndex(coupon => coupon.id === editingId);
+                if (index >= 0)
+                    this.coupons[index] = { ...this.coupons[index], ...result.coupon };
+                this.showToast(`Cupom "${result.coupon.titulo}" atualizado!`);
+            }
+            else {
+                this.coupons.unshift(result.coupon);
+                this.showToast(`Cupom "${result.coupon.titulo}" criado com sucesso!`);
+            }
+            this.closeModal();
+            return true;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
+    }
+    async toggleCouponStatus(couponId) {
+        const cup = this.coupons.find(c => c.id === couponId);
+        if (!cup)
+            return false;
+        return this.saveCoupon({ ...cup, ativo: !cup.ativo }, couponId);
+    }
+    async deleteCoupon(couponId) {
+        const cup = this.coupons.find(c => c.id === couponId);
+        if (!cup)
+            return false;
+        try {
+            const response = await fetch(`/api/coupons/${encodeURIComponent(couponId)}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.error || 'Não foi possível excluir o cupom.');
             }
         }
-        else {
-            const newCup = {
-                id: `cup-${Date.now()}`,
-                titulo: couponData.titulo,
-                descricao: couponData.descricao,
-                pontosNecessarios: couponData.pontosNecessarios,
-                valorDescontoReais: couponData.valorDescontoReais,
-                ativo: couponData.ativo,
-                dataCriacao: new Date().toISOString()
-            };
-            this.coupons.unshift(newCup);
-            this.addAuditLog('edicao_config', `Novo cupom "${newCup.titulo}" (${newCup.pontosNecessarios} pts) criado pelo Gerente ${this.currentUser.nome}`);
-            this.showToast(`Cupom "${newCup.titulo}" criado com sucesso!`);
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
         }
-        this.closeModal();
-    }
-    toggleCouponStatus(couponId) {
-        const cup = this.coupons.find(c => c.id === couponId);
-        if (!cup)
-            return;
-        cup.ativo = !cup.ativo;
-        this.addAuditLog('edicao_config', `Cupom "${cup.titulo}" ${cup.ativo ? 'ativado' : 'desativado'}`);
-        this.showToast(`Cupom "${cup.titulo}" ${cup.ativo ? 'Ativado' : 'Desativado'}.`);
-        this.notify();
-    }
-    deleteCoupon(couponId) {
-        const cup = this.coupons.find(c => c.id === couponId);
-        if (!cup)
-            return;
         this.coupons = this.coupons.filter(c => c.id !== couponId);
-        this.addAuditLog('edicao_config', `Cupom "${cup.titulo}" removido pelo Gerente ${this.currentUser.nome}`);
         this.showToast(`Cupom "${cup.titulo}" removido.`);
+        this.notify();
+        return true;
+    }
+    selectCouponForRedemption(couponId) {
+        this.selectedCouponIdForRedemption = couponId;
         this.notify();
     }
     // --- CLIENT EDITING ---
