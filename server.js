@@ -274,16 +274,17 @@ app.put('/api/clients/:id', requireAuth, async (req, res) => {
   const telefone = cleanText(req.body?.telefone, 20).replace(/[^\d+()-\s]/g, '');
   const email = cleanText(req.body?.email, 254).toLowerCase();
   const cpf = cleanText(req.body?.cpf, 14).replace(/\D/g, '');
-  const saldoPontos = Number(req.body?.saldoPontos);
+  const protectedPointFields = ['saldoPontos', 'totalPontosAcumulados', 'totalResgates', 'totalGastoHistorico', 'nivel'];
+  if (protectedPointFields.some(field => Object.prototype.hasOwnProperty.call(req.body || {}, field))) {
+    return res.status(403).json({
+      error: 'Pontos e totais não podem ser editados manualmente. Use compra, resgate ou estorno.'
+    });
+  }
 
   if (!id || nome.length < 2 || telefone.length < 8 || !validEmail(email)) {
     return res.status(400).json({ error: 'Nome, telefone ou e-mail inválido.' });
   }
-  if (!Number.isInteger(saldoPontos) || saldoPontos < 0) {
-    return res.status(400).json({ error: 'O saldo de pontos deve ser um número inteiro positivo.' });
-  }
-
-  const changes = { nome, telefone, email, cpf, saldoPontos };
+  const changes = { nome, telefone, email, cpf };
   try {
     const updated = await updateObjectById('clientes', id, changes);
     if (!updated) return res.status(404).json({ error: 'Cliente não encontrado na planilha.' });
@@ -497,6 +498,13 @@ app.post('/api/transactions/:id/approve', requireAuth, requireManager, async (re
     };
     await updateObjectById('clientes', client.id, clientChanges);
     await updateObjectById('transacoes', id, transactionChanges);
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'aprovacao_excedente',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Aprovados ${points} pontos da comanda ${transaction.numeroComanda}`,
+      categoria: 'PONTOS', comandaRef: transaction.numeroComanda,
+      clienteRef: client.telefone, ip: req.ip
+    });
     res.json({
       transaction: { id, ...transactionChanges },
       client: { id: client.id, ...clientChanges }
@@ -525,6 +533,12 @@ app.post('/api/transactions/:id/reject', requireAuth, requireManager, async (req
       rejeitadoEm: new Date().toISOString()
     });
     if (!updated) return res.status(404).json({ error: 'Lançamento não encontrado.' });
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'rejeicao_excedente',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Lançamento rejeitado: ${motivo}`, categoria: 'PONTOS',
+      comandaRef: transaction.numeroComanda, clienteRef: transaction.clienteTelefone, ip: req.ip
+    });
     res.json({ transaction: { id, status: 'rejeitado', motivoRejeicao: motivo } });
   } catch (error) {
     console.error(error);
@@ -546,6 +560,11 @@ app.post('/api/transactions/:id/reverse', requireAuth, requireManager, async (re
     if (!client) return res.status(404).json({ error: 'Cliente não encontrado.' });
     const points = Number(transaction.pontosGerados || 0);
     const amount = Number(transaction.valorCompra || 0);
+    if (Number(client.saldoPontos || 0) < points) {
+      return res.status(409).json({
+        error: 'O cliente já utilizou parte destes pontos. Estorne primeiro os resgates relacionados.'
+      });
+    }
     const totalPontosAcumulados = Math.max(0, Number(client.totalPontosAcumulados || 0) - points);
     const clientChanges = {
       saldoPontos: Math.max(0, Number(client.saldoPontos || 0) - points),
@@ -562,6 +581,13 @@ app.post('/api/transactions/:id/reverse', requireAuth, requireManager, async (re
     };
     await updateObjectById('clientes', client.id, clientChanges);
     await updateObjectById('transacoes', id, transactionChanges);
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'estorno_pontos',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Estornados ${points} pontos e R$ ${amount.toFixed(2)} da comanda ${transaction.numeroComanda}. Motivo: ${motivo}`,
+      categoria: 'PONTOS', comandaRef: transaction.numeroComanda,
+      clienteRef: client.telefone, ip: req.ip
+    });
     res.json({
       transaction: { id, ...transactionChanges },
       client: { id: client.id, ...clientChanges }
@@ -736,6 +762,12 @@ app.post('/api/redemptions/:id/reverse', requireAuth, requireManager, async (req
     };
     await updateObjectById('clientes', client.id, clientChanges);
     await updateObjectById('resgates', id, redemptionChanges);
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'estorno_resgate',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Devolvidos ${points} pontos ao cliente. Motivo: ${motivo}`,
+      categoria: 'RESGATES', clienteRef: client.email || client.telefone, ip: req.ip
+    });
     res.json({
       redemption: { id, ...redemptionChanges },
       client: { id: client.id, ...clientChanges }

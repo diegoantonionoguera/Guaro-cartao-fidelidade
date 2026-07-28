@@ -156,9 +156,12 @@ function renderEditClientModal() {
             <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">CPF</label>
             <input type="text" name="cpf" value="${escapeAttribute(client.cpf)}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Saldo de pontos</label>
-            <input type="number" name="saldoPontos" required min="0" step="1" value="${Number(client.saldoPontos) || 0}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+            <div>
+              <span class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400">Saldo de pontos</span>
+              <span class="text-[11px] text-zinc-500">Alterado somente por compras, resgates e estornos.</span>
+            </div>
+            <strong class="shrink-0 text-amber-300">${Number(client.saldoPontos) || 0} pts</strong>
           </div>
           ${store.currentUser.perfil === 'gerente' ? `
             <button type="button" data-action="delete-client" data-client-id="${escapeAttribute(client.id)}" class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-300 rounded-xl text-xs uppercase tracking-wider font-bold">

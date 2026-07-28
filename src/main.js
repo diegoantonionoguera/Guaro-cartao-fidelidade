@@ -405,12 +405,11 @@ function setupEventDelegation() {
             const telefone = (formData.get('telefone') || '').trim();
             const email = (formData.get('email') || '').trim();
             const cpf = (formData.get('cpf') || '').trim();
-            const saldoPontos = Number(formData.get('saldoPontos'));
-            if (!clientId || nome.length < 2 || telefone.length < 8 || !email.includes('@') || !Number.isInteger(saldoPontos) || saldoPontos < 0) {
-                store.showToast('Confira o nome, telefone, e-mail e saldo de pontos.', 'error');
+            if (!clientId || nome.length < 2 || telefone.length < 8 || !email.includes('@')) {
+                store.showToast('Confira o nome, telefone e e-mail.', 'error');
                 return;
             }
-            await store.saveClientInfo(clientId, { nome, telefone, email, cpf, saldoPontos });
+            await store.saveClientInfo(clientId, { nome, telefone, email, cpf });
             return;
         }
         if (target.id === 'form-add-points') {

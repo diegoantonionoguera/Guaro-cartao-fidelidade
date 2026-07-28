@@ -410,13 +410,11 @@ class Store {
         const client = this.clients.find(c => c.id === clientId);
         if (!client)
             return false;
-        const oldSaldo = client.saldoPontos;
         const changes = {
             nome: data.nome.trim(),
             telefone: data.telefone.trim(),
             email: data.email.trim().toLowerCase(),
-            cpf: data.cpf?.trim() || '',
-            saldoPontos: Number(data.saldoPontos)
+            cpf: data.cpf?.trim() || ''
         };
         try {
             const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
@@ -436,13 +434,8 @@ class Store {
         }
         client.nome = changes.nome;
         client.telefone = changes.telefone;
+        client.email = changes.email;
         client.cpf = changes.cpf || undefined;
-        client.saldoPontos = changes.saldoPontos;
-        let logDetail = `Dados do cliente ${client.nome} atualizados (${client.telefone})`;
-        if (oldSaldo !== changes.saldoPontos) {
-            logDetail += `. Saldo alterado de ${oldSaldo} pts para ${changes.saldoPontos} pts por ${this.currentUser.nome}`;
-        }
-        this.addAuditLog('cadastro_cliente', logDetail, undefined, client.telefone);
         this.showToast(`Cadastro do cliente ${client.nome} atualizado com sucesso!`);
         this.closeModal();
         return true;
@@ -475,12 +468,22 @@ class Store {
         this.notify();
     }
     // Business calculations
-    getPontosLancadosHoje(userId) {
+    getTransactionsToday(userId) {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
-        return this.transactions
-            .filter(t => t.usuarioId === userId && t.status === 'aprovado' && new Date(t.dataHora) >= startOfToday)
-            .reduce((acc, t) => acc + t.pontosGerados, 0);
+        const startOfTomorrow = new Date(startOfToday);
+        startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+        return this.transactions.filter(transaction => {
+            const date = new Date(transaction.dataHora);
+            return String(transaction.usuarioId) === String(userId) &&
+                transaction.status === 'aprovado' &&
+                date >= startOfToday &&
+                date < startOfTomorrow;
+        });
+    }
+    getPontosLancadosHoje(userId) {
+        return this.getTransactionsToday(userId)
+            .reduce((total, transaction) => total + Number(transaction.pontosGerados || 0), 0);
     }
     getRemainingQuotaForUser(userId) {
         const user = this.users.find(u => u.id === userId) || this.currentUser;
