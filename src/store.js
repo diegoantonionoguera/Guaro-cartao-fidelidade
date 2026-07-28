@@ -357,22 +357,45 @@ class Store {
         this.notify();
     }
     // --- CLIENT EDITING ---
-    saveClientInfo(clientId, data) {
+    async saveClientInfo(clientId, data) {
         const client = this.clients.find(c => c.id === clientId);
         if (!client)
-            return;
+            return false;
         const oldSaldo = client.saldoPontos;
-        client.nome = data.nome.trim();
-        client.telefone = data.telefone.trim();
-        client.cpf = data.cpf?.trim() || undefined;
-        client.saldoPontos = data.saldoPontos;
+        const changes = {
+            nome: data.nome.trim(),
+            telefone: data.telefone.trim(),
+            cpf: data.cpf?.trim() || '',
+            saldoPontos: Number(data.saldoPontos)
+        };
+        try {
+            const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(changes)
+            });
+            const responseText = await response.text();
+            const result = responseText ? JSON.parse(responseText) : {};
+            if (!response.ok)
+                throw new Error(result.error || 'Erro ao atualizar cliente.');
+        }
+        catch (error) {
+            this.showToast(error.message || 'Erro ao atualizar cliente.', 'error');
+            return false;
+        }
+        client.nome = changes.nome;
+        client.telefone = changes.telefone;
+        client.cpf = changes.cpf || undefined;
+        client.saldoPontos = changes.saldoPontos;
         let logDetail = `Dados do cliente ${client.nome} atualizados (${client.telefone})`;
-        if (oldSaldo !== data.saldoPontos) {
-            logDetail += `. Saldo alterado de ${oldSaldo} pts para ${data.saldoPontos} pts por ${this.currentUser.nome}`;
+        if (oldSaldo !== changes.saldoPontos) {
+            logDetail += `. Saldo alterado de ${oldSaldo} pts para ${changes.saldoPontos} pts por ${this.currentUser.nome}`;
         }
         this.addAuditLog('cadastro_cliente', logDetail, undefined, client.telefone);
         this.showToast(`Cadastro do cliente ${client.nome} atualizado com sucesso!`);
         this.closeModal();
+        return true;
     }
     verifyAndSwitchManager(loginVal, passVal) {
         const cleanLogin = loginVal.trim();

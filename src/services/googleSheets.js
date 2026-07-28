@@ -108,6 +108,36 @@ export async function appendObject(sheetName, object) {
   });
 }
 
+export async function updateObjectById(sheetName, id, object) {
+  const range = encodeURIComponent(`'${sheetName}'!A:ZZ`);
+  const data = await request(`/values/${range}`);
+  const [headers = [], ...rows] = data.values || [];
+  const idColumn = headers.indexOf('id');
+
+  if (idColumn === -1) {
+    throw new Error(`A aba "${sheetName}" não possui a coluna "id".`);
+  }
+
+  const rowIndex = rows.findIndex(row => String(row[idColumn] ?? '') === String(id));
+  if (rowIndex === -1) return false;
+
+  const currentRow = rows[rowIndex];
+  const updatedRow = headers.map((header, columnIndex) => (
+    Object.prototype.hasOwnProperty.call(object, header)
+      ? object[header] ?? ''
+      : currentRow[columnIndex] ?? ''
+  ));
+  const sheetRow = rowIndex + 2;
+  const updateRange = encodeURIComponent(`'${sheetName}'!A${sheetRow}`);
+
+  await request(`/values/${updateRange}?valueInputOption=RAW`, {
+    method: 'PUT',
+    body: JSON.stringify({ values: [updatedRow] })
+  });
+
+  return true;
+}
+
 export function isSheetsConfigured() {
   return Boolean(
     process.env.GOOGLE_SHEETS_ID &&

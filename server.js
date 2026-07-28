@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
-import { appendObject, isSheetsConfigured, readSheet } from './src/services/googleSheets.js';
+import { appendObject, isSheetsConfigured, readSheet, updateObjectById } from './src/services/googleSheets.js';
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -144,6 +144,44 @@ app.post('/api/clients', requireAuth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(502).json({ error: 'Não foi possível gravar na planilha.' });
+  }
+});
+
+app.put('/api/clients/:id', requireAuth, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  const nome = cleanText(req.body?.nome, 100);
+  const telefone = cleanText(req.body?.telefone, 20).replace(/[^\d+()-\s]/g, '');
+  const cpf = cleanText(req.body?.cpf, 14).replace(/\D/g, '');
+  const saldoPontos = Number(req.body?.saldoPontos);
+
+  if (!id || nome.length < 2 || telefone.length < 8) {
+    return res.status(400).json({ error: 'Nome ou telefone inválido.' });
+  }
+  if (!Number.isInteger(saldoPontos) || saldoPontos < 0) {
+    return res.status(400).json({ error: 'O saldo de pontos deve ser um número inteiro positivo.' });
+  }
+
+  const changes = { nome, telefone, cpf, saldoPontos };
+  try {
+    const updated = await updateObjectById('clientes', id, changes);
+    if (!updated) return res.status(404).json({ error: 'Cliente não encontrado na planilha.' });
+
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(),
+      dataHora: new Date().toISOString(),
+      acao: 'edicao_cliente',
+      usuarioId: req.user.id,
+      usuarioNome: req.user.nome,
+      usuarioPerfil: req.user.perfil,
+      detalhes: `Cliente atualizado: ${nome}`,
+      categoria: 'CLIENTES',
+      clienteRef: telefone,
+      ip: req.ip
+    });
+    res.json({ client: { id, ...changes } });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível atualizar o cliente na planilha.' });
   }
 });
 

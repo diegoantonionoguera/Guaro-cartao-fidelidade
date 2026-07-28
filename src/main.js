@@ -119,6 +119,13 @@ function setupEventDelegation() {
             store.openModal('new-client');
             return;
         }
+        const editClientBtn = target.closest('[data-action="open-edit-client"]');
+        if (editClientBtn) {
+            const clientId = editClientBtn.dataset.clientId;
+            if (clientId)
+                store.openModal('edit-client', clientId);
+            return;
+        }
         const addUserBtn = target.closest('[data-action="add-user"]');
         if (addUserBtn) {
             store.openModal('user-modal');
@@ -355,6 +362,21 @@ function setupEventDelegation() {
             if (nome && telefone) {
                 await store.registerNewClient(nome, telefone, cpf);
             }
+            return;
+        }
+        if (target.id === 'form-edit-client') {
+            const formData = new FormData(target);
+            const clientId = formData.get('clientId');
+            const nome = (formData.get('nome') || '').trim();
+            const telefone = (formData.get('telefone') || '').trim();
+            const cpf = (formData.get('cpf') || '').trim();
+            const saldoPontos = Number(formData.get('saldoPontos'));
+            if (!clientId || nome.length < 2 || telefone.length < 8 || !Number.isInteger(saldoPontos) || saldoPontos < 0) {
+                store.showToast('Confira o nome, telefone e saldo de pontos.', 'error');
+                return;
+            }
+            await store.saveClientInfo(clientId, { nome, telefone, cpf, saldoPontos });
+            return;
         }
         if (target.id === 'form-add-points') {
             const formData = new FormData(target);

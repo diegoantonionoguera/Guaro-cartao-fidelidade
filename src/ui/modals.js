@@ -5,6 +5,8 @@ export function renderModals() {
         return '';
     if (activeModal === 'new-client')
         return renderNewClientModal();
+    if (activeModal === 'edit-client')
+        return renderEditClientModal();
     if (activeModal === 'add-points')
         return renderAddPointsModal();
     if (activeModal === 'redemption')
@@ -194,6 +196,52 @@ function renderNewClientModal() {
           </div>
         </form>
 
+      </div>
+    </div>
+  `;
+}
+function escapeAttribute(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+}
+function renderEditClientModal() {
+    const client = store.clients.find(c => c.id === store.editingClientId);
+    if (!client)
+        return '';
+    return `
+    <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div class="bg-[#09090b] border border-white/10 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="relative bg-white/[0.02] p-5 sm:p-6 border-b border-white/10">
+          <button id="btn-close-modal" type="button" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white">✕</button>
+          <h2 class="text-lg font-extrabold text-white">Editar cliente</h2>
+          <p class="text-xs text-zinc-400 mt-1">As alterações serão salvas diretamente na planilha.</p>
+        </div>
+        <form id="form-edit-client" class="p-5 sm:p-6 space-y-4">
+          <input type="hidden" name="clientId" value="${escapeAttribute(client.id)}" />
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Nome completo</label>
+            <input type="text" name="nome" required minlength="2" value="${escapeAttribute(client.nome)}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">WhatsApp / celular</label>
+            <input type="text" name="telefone" required minlength="8" value="${escapeAttribute(client.telefone)}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">CPF</label>
+            <input type="text" name="cpf" value="${escapeAttribute(client.cpf)}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Saldo de pontos</label>
+            <input type="number" name="saldoPontos" required min="0" step="1" value="${Number(client.saldoPontos) || 0}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
+          </div>
+          <div class="flex items-center gap-2 pt-2">
+            <button type="button" id="btn-close-modal-alt" class="flex-1 py-3 bg-white/5 text-zinc-300 hover:bg-white/10 rounded-xl text-xs uppercase tracking-wider">Cancelar</button>
+            <button type="submit" class="flex-1 py-3 bg-gradient-to-r from-[#E32227] to-[#FF7A00] text-white rounded-xl text-xs uppercase tracking-wider font-bold">Salvar alterações</button>
+          </div>
+        </form>
       </div>
     </div>
   `;
