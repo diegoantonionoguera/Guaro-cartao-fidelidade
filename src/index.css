@@ -631,6 +631,7 @@ button:active {
   }
 
   .daily-counter {
+    position: static;
     width: 100%;
     min-width: 0;
   }
@@ -658,9 +659,12 @@ button:active {
   }
 
   .quota-tooltip {
+    top: calc(100% + 0.5rem);
     right: auto;
-    left: 0;
-    width: min(85vw, 20rem);
+    left: 4%;
+    width: 92%;
+    max-width: none;
+    margin-top: 0;
   }
 
   .mobile-profile-select {
