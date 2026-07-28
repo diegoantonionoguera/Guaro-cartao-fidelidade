@@ -7,17 +7,17 @@ export function renderNavbar() {
     const totalLancadosHoje = store.getPontosLancadosHoje(currentUser.id);
     return `
     <header class="bg-[#161616]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16 sm:h-20 gap-2">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div class="mobile-nav-layout flex items-center justify-between min-h-16 sm:h-20 gap-2 py-2 sm:py-0">
           
           <!-- Logo -->
-          <div class="flex items-center space-x-3 shrink-0">
+          <div class="mobile-brand flex items-center space-x-2 sm:space-x-3 min-w-0">
             <div class="brand-mark w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-black text-lg">
               F
             </div>
-            <div>
+            <div class="min-w-0">
               <div class="flex items-center space-x-2">
-                <span class="text-sm sm:text-base font-black text-white tracking-tight font-sans">
+                <span class="block max-w-[11rem] sm:max-w-none truncate text-sm sm:text-base font-black text-white tracking-tight font-sans">
                   ${store.config.nomeEstabelecimento}
                 </span>
                 <span class="hidden sm:inline-block text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10">
@@ -29,7 +29,7 @@ export function renderNavbar() {
           </div>
 
           <!-- Navigation Tabs (Desktop & Mobile) -->
-          <div class="flex items-center space-x-1 sm:space-x-1.5 bg-white/[0.03] p-1 rounded-xl border border-white/10">
+          <nav aria-label="Navegação principal" class="mobile-primary-nav flex items-center space-x-1 sm:space-x-1.5 bg-white/[0.03] p-1 rounded-xl border border-white/10">
             <button
               id="btn-nav-dashboard"
               class="px-2.5 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center space-x-1 sm:space-x-1.5 cursor-pointer ${store.activeTab === 'dashboard'
@@ -54,10 +54,10 @@ export function renderNavbar() {
                 </span>
               ` : ''}
             </button>
-          </div>
+          </nav>
 
           <!-- Right Controls -->
-          <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          <div class="mobile-nav-actions flex items-center space-x-1.5 sm:space-x-3 shrink-0">
             
             <!-- Cota Indicator Button -->
             <div class="relative">
@@ -67,7 +67,7 @@ export function renderNavbar() {
               >
                 <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 <span class="hidden sm:inline text-zinc-400 text-[11px]">Cota Hoje:</span>
-                <strong class="${remainingQuota < 100 ? 'text-amber-400 font-bold' : 'text-white'}">
+                <strong class="quota-value ${remainingQuota < 100 ? 'text-amber-400 font-bold' : 'text-white'}">
                   ${remainingQuota} pts
                 </strong>
               </button>
@@ -106,7 +106,7 @@ export function renderNavbar() {
             <div class="relative">
               <select
                 id="select-user-profile"
-                class="bg-white/5 border border-white/10 text-white text-xs font-medium rounded-xl px-2.5 sm:px-3 py-1.5 focus:outline-none focus:border-white/30 font-sans cursor-pointer"
+                class="mobile-profile-select bg-white/5 border border-white/10 text-white text-xs font-medium rounded-xl px-2.5 sm:px-3 py-1.5 focus:outline-none focus:border-white/30 font-sans cursor-pointer"
               >
                 ${store.users.map(u => `
                   <option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''} class="bg-zinc-900 text-white">

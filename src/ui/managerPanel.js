@@ -367,7 +367,7 @@ export function renderManagerPanel() {
               <div class="bg-[#09090b] border border-white/10 hover:border-white/20 rounded-2xl p-5 space-y-4 shadow-xl flex flex-col justify-between relative overflow-hidden ${!c.ativo ? 'opacity-50' : ''}">
                 <div>
                   <div class="flex items-start justify-between gap-2">
-                    <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest border ${c.ativo ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30'}">
+                    <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest border ${c.ativo ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-zinc-800 text-zinc-200 border-zinc-600'}">
                       ${c.ativo ? '● Ativo' : '○ Inativo'}
                     </span>
                     <span class="text-xl font-black text-amber-400 font-mono">
@@ -484,7 +484,7 @@ export function renderManagerPanel() {
                       </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2 text-right">
+                    <div class="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2 min-[420px]:text-right">
                       <div class="bg-white/[0.02] p-2 rounded-lg border border-white/5">
                         <span class="text-[9px] text-zinc-500 uppercase block font-bold">Novas Contas</span>
                         <strong class="text-xs text-blue-400 font-bold">${clientCreatedCount} criadas</strong>

@@ -40,15 +40,20 @@
   }
 
   body {
-    @apply text-zinc-100 antialiased min-h-screen selection:bg-amber-500/30 selection:text-white;
+    @apply text-zinc-100 antialiased min-h-screen;
     font-family: "Poppins", "Segoe UI", Arial, sans-serif;
     background-color: var(--guaro-black);
     background-image:
       radial-gradient(at 0% 0%, rgba(227, 34, 39, 0.14) 0, transparent 38%),
-      radial-gradient(at 100% 0%, rgba(255, 122, 0, 0.10) 0, transparent 42%),
-      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-    background-size: auto, auto, 32px 32px;
+      radial-gradient(at 100% 0%, rgba(255, 122, 0, 0.10) 0, transparent 42%);
     background-attachment: fixed;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  ::selection {
+    color: #fff;
+    background: rgba(227, 34, 39, 0.72);
   }
 
   h1, h2, h3 {
@@ -194,5 +199,135 @@ button:active {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  select,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  main {
+    padding-top: 1rem !important;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .mobile-nav-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand actions"
+      "nav nav";
+    height: auto;
+  }
+
+  .mobile-brand {
+    grid-area: brand;
+  }
+
+  .mobile-primary-nav {
+    grid-area: nav;
+    width: 100%;
+  }
+
+  .mobile-primary-nav > button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    padding-inline: 0.5rem;
+  }
+
+  .mobile-nav-actions {
+    grid-area: actions;
+  }
+
+  .mobile-nav-actions > .relative:first-child {
+    display: none;
+  }
+
+  .mobile-profile-select {
+    width: 6.5rem;
+    min-height: 44px;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-result-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    line-height: 1.5;
+  }
+
+  .mobile-result-summary > span:last-child {
+    color: #a1a1aa;
+  }
+
+  /* Mobile dialogs behave as reachable bottom sheets. */
+  #modals-container > div.fixed.inset-0 {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  #modals-container > div.fixed.inset-0 > div {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 0.75rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  #sms-drawer-container > div.fixed.inset-0 > div {
+    max-width: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  table {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 389px) {
+  .mobile-brand .brand-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .mobile-brand span {
+    max-width: 8.5rem;
+    font-size: 0.75rem;
+  }
+
+  .mobile-profile-select {
+    width: 4.75rem;
+  }
+
+  .mobile-primary-nav > button {
+    font-size: 0.56rem;
+    letter-spacing: 0.045em;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  #modals-container > div.fixed.inset-0 > div {
+    max-height: 100dvh;
+    border-radius: 0;
   }
 }

@@ -663,7 +663,7 @@ function renderUserModal() {
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Perfil</label>
               <select name="perfil" class="w-full p-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white">
@@ -726,7 +726,7 @@ function renderCouponModal() {
             >${editingCoupon ? editingCoupon.descricao : ''}</textarea>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Pontos Necessários</label>
               <input

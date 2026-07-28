@@ -53,7 +53,7 @@ export function renderClientList() {
       </div>
 
       <!-- Results Title -->
-      <div class="flex items-center justify-between text-xs text-zinc-400 font-mono px-1">
+      <div class="mobile-result-summary flex items-center justify-between gap-2 text-xs text-zinc-400 font-mono px-1">
         <span>EXIBINDO <strong>${filteredClients.length}</strong> CLIENTE(S) CADASTRADOS</span>
         <span>REGRA DE RESGATE: <strong>${rewardThreshold} PTS = R$ ${store.config.valorResgateReais.toFixed(2)} OFF</strong></span>
       </div>
