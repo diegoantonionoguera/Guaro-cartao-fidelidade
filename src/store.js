@@ -98,7 +98,7 @@ class Store {
                         valorCompra: t.valorCompra,
                         pontosGerados: t.pontosGerados,
                         status: t.status,
-                        motivoPendente: t.motivoRejeicao,
+                        motivoPendente: t.motivoPendente || t.motivoRejeicao,
                         dataHora: t.dataHora
                     }));
                 }
@@ -560,112 +560,123 @@ class Store {
         this.closeModal();
         return newClient;
     }
-    addPointsTransaction(clientId, numeroComanda, valorCompra) {
+    async addPointsTransaction(clientId, numeroComanda, valorCompra) {
         const client = this.clients.find(c => c.id === clientId);
         if (!client)
-            return;
-        const pontosGerados = Math.floor(valorCompra * this.config.taxaConversaoReais);
-        const quotaRestante = this.getRemainingQuotaForUser(this.currentUser.id);
-        const isExceeded = pontosGerados > quotaRestante;
-        const status = isExceeded ? 'pendente' : 'aprovado';
-        const tx = {
-            id: `tx-${Date.now()}`,
-            clienteId: client.id,
-            clienteNome: client.nome,
-            clienteTelefone: client.telefone,
-            usuarioId: this.currentUser.id,
-            usuarioNome: this.currentUser.nome,
-            numeroComanda: numeroComanda.toUpperCase(),
-            valorCompra,
-            pontosGerados,
-            status,
-            motivoPendente: isExceeded ? `Excede cota diária de lançamentos do atendente (cota restante: ${quotaRestante} pts)` : undefined,
-            dataHora: new Date().toISOString()
-        };
-        this.transactions.unshift(tx);
-        if (status === 'aprovado') {
-            client.saldoPontos += pontosGerados;
-            client.totalPontosAcumulados += pontosGerados;
-            client.totalGastoHistorico += valorCompra;
-            client.nivel = this.calculateClientLevel(client.totalPontosAcumulados);
-            this.addAuditLog('lancamento_pontos', `Lançamento de ${pontosGerados} pontos para o cliente ${client.nome} (Valor: R$ ${valorCompra.toFixed(2)})`, tx.numeroComanda, client.telefone);
-            this.sendSms(client.telefone, client.nome, `${this.config.nomeEstabelecimento}: Você acumulou +${pontosGerados} pontos na comanda ${tx.numeroComanda}! Saldo atual: ${client.saldoPontos} pts.`, 'pontos_ganhos');
-            this.showToast(`Lançamento de +${pontosGerados} pts realizado com sucesso!`);
+            return false;
+        try {
+            const response = await fetch('/api/transactions', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ clientId, numeroComanda, valorCompra })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível registrar a compra.');
+            this.transactions.unshift(result.transaction);
+            if (result.client)
+                Object.assign(client, result.client);
+            this.showToast(result.transaction.status === 'aprovado'
+                ? `Compra registrada: +${result.transaction.pontosGerados} pontos.`
+                : 'Compra registrada e enviada para aprovação do gerente.',
+            result.transaction.status === 'aprovado' ? 'success' : 'info');
+            this.closeModal();
+            return true;
         }
-        else {
-            this.addAuditLog('lancamento_pontos', `Lançamento excedeu a cota do atendente (${pontosGerados} pts). Lançamento enviado para aprovação do gerente.`, tx.numeroComanda, client.telefone);
-            this.sendSms(client.telefone, client.nome, `${this.config.nomeEstabelecimento}: Sua compra da comanda ${tx.numeroComanda} (+${pontosGerados} pts) está aguardando aprovação do gerente.`, 'aprovacao_pendente');
-            this.showToast(`Lançamento excedeu sua cota diária! Solicitação enviada ao Gerente.`, 'info');
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
         }
-        this.closeModal();
     }
-    approveTransaction(txId) {
+    async approveTransaction(txId) {
         if (this.currentUser.perfil !== 'gerente') {
             this.showToast('Somente o Gerente pode aprovar lançamentos!', 'error');
-            return;
+            return false;
         }
         const tx = this.transactions.find(t => t.id === txId);
         if (!tx || tx.status !== 'pendente')
-            return;
+            return false;
         const client = this.clients.find(c => c.id === tx.clienteId);
         if (!client)
-            return;
-        tx.status = 'aprovado';
-        tx.aprovadoPor = {
-            usuarioId: this.currentUser.id,
-            usuarioNome: this.currentUser.nome,
-            dataHora: new Date().toISOString()
-        };
-        client.saldoPontos += tx.pontosGerados;
-        client.totalPontosAcumulados += tx.pontosGerados;
-        client.totalGastoHistorico += tx.valorCompra;
-        client.nivel = this.calculateClientLevel(client.totalPontosAcumulados);
-        this.addAuditLog('aprovacao_excedente', `Gerente ${this.currentUser.nome} APROVOU o lançamento de ${tx.pontosGerados} pts da comanda ${tx.numeroComanda}`, tx.numeroComanda, client.telefone);
-        this.sendSms(client.telefone, client.nome, `${this.config.nomeEstabelecimento}: Seu lançamento da comanda ${tx.numeroComanda} foi APROVADO! +${tx.pontosGerados} pts creditados. Saldo: ${client.saldoPontos} pts.`, 'pontos_ganhos');
-        this.showToast(`Lançamento da comanda ${tx.numeroComanda} APROVADO!`);
-        this.notify();
+            return false;
+        try {
+            const response = await fetch(`/api/transactions/${encodeURIComponent(txId)}/approve`, {
+                method: 'POST',
+                credentials: 'same-origin'
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível aprovar o lançamento.');
+            Object.assign(tx, result.transaction);
+            Object.assign(client, result.client);
+            this.showToast(`Lançamento da comanda ${tx.numeroComanda} aprovado!`);
+            this.notify();
+            return true;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
     }
-    rejectTransaction(txId, motivo) {
+    async rejectTransaction(txId, motivo) {
         if (this.currentUser.perfil !== 'gerente') {
             this.showToast('Somente o Gerente pode rejeitar lançamentos!', 'error');
-            return;
+            return false;
         }
         const tx = this.transactions.find(t => t.id === txId);
         if (!tx || tx.status !== 'pendente')
-            return;
-        tx.status = 'rejeitado';
-        tx.rejeitadoPor = {
-            usuarioId: this.currentUser.id,
-            usuarioNome: this.currentUser.nome,
-            motivo,
-            dataHora: new Date().toISOString()
-        };
-        this.addAuditLog('rejeicao_excedente', `Gerente ${this.currentUser.nome} REJEITOU o lançamento da comanda ${tx.numeroComanda}. Motivo: ${motivo}`, tx.numeroComanda, tx.clienteTelefone);
-        this.showToast(`Lançamento rejeitado com sucesso.`, 'info');
-        this.closeModal();
+            return false;
+        try {
+            const response = await fetch(`/api/transactions/${encodeURIComponent(txId)}/reject`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ motivo })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível rejeitar o lançamento.');
+            Object.assign(tx, result.transaction);
+            this.showToast('Lançamento rejeitado com sucesso.', 'info');
+            this.closeModal();
+            return true;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
     }
-    estornarTransaction(txId, motivo) {
+    async estornarTransaction(txId, motivo) {
         if (this.currentUser.perfil !== 'gerente') {
             this.showToast('Somente o Gerente pode efetuar estornos!', 'error');
-            return;
+            return false;
         }
         const tx = this.transactions.find(t => t.id === txId);
         if (!tx || tx.status !== 'aprovado')
-            return;
+            return false;
         const client = this.clients.find(c => c.id === tx.clienteId);
-        if (client) {
-            client.saldoPontos = Math.max(0, client.saldoPontos - tx.pontosGerados);
+        try {
+            const response = await fetch(`/api/transactions/${encodeURIComponent(txId)}/reverse`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ motivo })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível estornar o lançamento.');
+            Object.assign(tx, result.transaction);
+            if (client)
+                Object.assign(client, result.client);
+            this.showToast(`Lançamento da comanda ${tx.numeroComanda} estornado com sucesso!`);
+            this.closeModal();
+            return true;
         }
-        tx.status = 'estornado';
-        tx.estornadoPor = {
-            usuarioId: this.currentUser.id,
-            usuarioNome: this.currentUser.nome,
-            motivo,
-            dataHora: new Date().toISOString()
-        };
-        this.addAuditLog('estorno_pontos', `Gerente ESTORNOU ${tx.pontosGerados} pts da comanda ${tx.numeroComanda}. Motivo: ${motivo}`, tx.numeroComanda, tx.clienteTelefone);
-        this.showToast(`Lançamento da comanda ${tx.numeroComanda} estornado com sucesso!`);
-        this.closeModal();
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
     }
     async createRedemptionRequest(clientId, pontosUtilizados, valorDescontoReais, cupomId, cupomTitulo) {
         const client = this.clients.find(c => c.id === clientId);
@@ -732,29 +743,36 @@ class Store {
             return false;
         }
     }
-    estornarRedemption(rdId, motivo) {
+    async estornarRedemption(rdId, motivo) {
         if (this.currentUser.perfil !== 'gerente') {
             this.showToast('Somente o Gerente pode estornar resgates!', 'error');
-            return;
+            return false;
         }
         const rd = this.redemptions.find(r => r.id === rdId);
         if (!rd || rd.status !== 'confirmado')
-            return;
+            return false;
         const client = this.clients.find(c => c.id === rd.clienteId);
-        if (client) {
-            client.saldoPontos += rd.pontosUtilizados;
-            client.totalResgates = Math.max(0, client.totalResgates - rd.pontosUtilizados);
+        try {
+            const response = await fetch(`/api/redemptions/${encodeURIComponent(rdId)}/reverse`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ motivo })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível estornar o resgate.');
+            Object.assign(rd, result.redemption);
+            if (client)
+                Object.assign(client, result.client);
+            this.showToast('Resgate estornado com sucesso! Pontos devolvidos.');
+            this.closeModal();
+            return true;
         }
-        rd.status = 'estornado';
-        rd.estornadoPor = {
-            usuarioId: this.currentUser.id,
-            usuarioNome: this.currentUser.nome,
-            motivo,
-            dataHora: new Date().toISOString()
-        };
-        this.addAuditLog('estorno_resgate', `Gerente ESTORNOU resgate de R$ ${rd.valorDescontoReais.toFixed(2)} (+${rd.pontosUtilizados} pts devolvidos ao cliente). Motivo: ${motivo}`, undefined, rd.clienteTelefone);
-        this.showToast(`Resgate estornado com sucesso! Pontos devolvidos.`);
-        this.closeModal();
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return false;
+        }
     }
     saveSystemConfig(newConfig) {
         if (this.currentUser.perfil !== 'gerente') {

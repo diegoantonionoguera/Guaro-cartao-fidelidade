@@ -241,7 +241,7 @@ function setupEventDelegation() {
         if (approveTxBtn) {
             const txId = approveTxBtn.dataset.txId;
             if (txId)
-                store.approveTransaction(txId);
+                await store.approveTransaction(txId);
             return;
         }
         const rejectTxBtn = target.closest('[data-action="reject-tx"]');
@@ -330,7 +330,7 @@ function setupEventDelegation() {
         if (target.closest('#btn-confirm-reject-tx')) {
             const textarea = document.getElementById('textarea-reject-reason');
             if (textarea && textarea.value.trim() && store.modalTxId) {
-                store.rejectTransaction(store.modalTxId, textarea.value.trim());
+                await store.rejectTransaction(store.modalTxId, textarea.value.trim());
             }
             else {
                 store.showToast('Por favor, digite a justificativa da rejeição.', 'error');
@@ -340,7 +340,7 @@ function setupEventDelegation() {
         if (target.closest('#btn-confirm-estorno-tx')) {
             const textarea = document.getElementById('textarea-estorno-reason');
             if (textarea && textarea.value.trim() && store.modalTxId) {
-                store.estornarTransaction(store.modalTxId, textarea.value.trim());
+                await store.estornarTransaction(store.modalTxId, textarea.value.trim());
             }
             else {
                 store.showToast('Por favor, digite a justificativa do estorno.', 'error');
@@ -350,7 +350,7 @@ function setupEventDelegation() {
         if (target.closest('#btn-confirm-estorno-rd')) {
             const textarea = document.getElementById('textarea-estorno-reason');
             if (textarea && textarea.value.trim() && store.modalRdId) {
-                store.estornarRedemption(store.modalRdId, textarea.value.trim());
+                await store.estornarRedemption(store.modalRdId, textarea.value.trim());
             }
             else {
                 store.showToast('Por favor, digite a justificativa do estorno.', 'error');
@@ -419,7 +419,7 @@ function setupEventDelegation() {
             const comanda = formData.get('numeroComanda');
             const valor = parseFloat(formData.get('valorCompra'));
             if (clientId && comanda && valor > 0) {
-                store.addPointsTransaction(clientId, comanda, valor);
+                await store.addPointsTransaction(clientId, comanda, valor);
             }
             else {
                 store.showToast('Preencha os campos obrigatórios.', 'error');

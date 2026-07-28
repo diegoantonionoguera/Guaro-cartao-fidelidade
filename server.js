@@ -87,6 +87,13 @@ function maskEmail(email) {
   return `${local.slice(0, 2)}${'*'.repeat(Math.max(2, local.length - 2))}@${domain}`;
 }
 
+function clientLevel(totalPoints) {
+  if (totalPoints >= 800) return 'VIP Gourmet';
+  if (totalPoints >= 400) return 'Ouro';
+  if (totalPoints >= 150) return 'Prata';
+  return 'Bronze';
+}
+
 function codeDigest(redemptionId, code) {
   const secret = process.env.REDEMPTION_CODE_SECRET || process.env.ADMIN_PASSWORD;
   return crypto.createHmac('sha256', secret).update(`${redemptionId}:${code}`).digest('hex');
@@ -382,6 +389,189 @@ app.delete('/api/coupons/:id', requireAuth, requireManager, async (req, res) => 
   }
 });
 
+app.post('/api/transactions', requireAuth, async (req, res) => {
+  const clientId = cleanText(req.body?.clientId, 100);
+  const numeroComanda = cleanText(req.body?.numeroComanda, 60).toUpperCase();
+  const valorCompra = Number(req.body?.valorCompra);
+  if (!clientId || numeroComanda.length < 2 || !Number.isFinite(valorCompra) || valorCompra <= 0) {
+    return res.status(400).json({ error: 'Cliente, comanda ou valor da compra inválido.' });
+  }
+
+  try {
+    const [clients, transactions, configRows] = await Promise.all([
+      readSheet('clientes'), readSheet('transacoes'), readSheet('configuracao')
+    ]);
+    const client = clients.find(item => String(item.id) === clientId);
+    if (!client) return res.status(404).json({ error: 'Cliente não encontrado.' });
+    const duplicate = transactions.some(item => (
+      String(item.numeroComanda || '').toUpperCase() === numeroComanda &&
+      !['rejeitado', 'estornado'].includes(String(item.status))
+    ));
+    if (duplicate) return res.status(409).json({ error: 'Esta comanda já foi lançada.' });
+
+    const conversionRate = Number(configRows[0]?.taxaConversaoReais || 1);
+    const pontosGerados = Math.floor(valorCompra * conversionRate);
+    if (pontosGerados <= 0) return res.status(400).json({ error: 'O valor informado não gera pontos.' });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const usedToday = transactions
+      .filter(item => (
+        String(item.usuarioId) === String(req.user.id) &&
+        item.status === 'aprovado' &&
+        String(item.dataHora || '').slice(0, 10) === today
+      ))
+      .reduce((total, item) => total + Number(item.pontosGerados || 0), 0);
+    const quota = Number(req.user.cotaDiariaPontos ?? configRows[0]?.cotaDiariaPadrao ?? 0);
+    const remainingQuota = Math.max(0, quota - usedToday);
+    const status = req.user.perfil === 'gerente' || pontosGerados <= remainingQuota ? 'aprovado' : 'pendente';
+
+    const transaction = {
+      id: crypto.randomUUID(),
+      clienteId: client.id,
+      clienteNome: client.nome,
+      clienteTelefone: client.telefone,
+      usuarioId: req.user.id,
+      usuarioNome: req.user.nome,
+      numeroComanda,
+      valorCompra: Number(valorCompra.toFixed(2)),
+      pontosGerados,
+      status,
+      motivoPendente: status === 'pendente' ? `Excede a cota restante de ${remainingQuota} pontos` : '',
+      dataHora: new Date().toISOString()
+    };
+    await appendObject('transacoes', transaction);
+
+    let clientChanges = null;
+    if (status === 'aprovado') {
+      const totalPontosAcumulados = Number(client.totalPontosAcumulados || 0) + pontosGerados;
+      clientChanges = {
+        saldoPontos: Number(client.saldoPontos || 0) + pontosGerados,
+        totalPontosAcumulados,
+        totalGastoHistorico: Number((Number(client.totalGastoHistorico || 0) + valorCompra).toFixed(2)),
+        nivel: clientLevel(totalPontosAcumulados)
+      };
+      await updateObjectById('clientes', client.id, clientChanges);
+    }
+
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'lancamento_pontos',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `${numeroComanda}: R$ ${valorCompra.toFixed(2)}, ${pontosGerados} pontos, status ${status}`,
+      categoria: 'PONTOS', comandaRef: numeroComanda, clienteRef: client.telefone, ip: req.ip
+    });
+    res.status(201).json({
+      transaction,
+      client: clientChanges ? { id: client.id, ...clientChanges } : null,
+      remainingQuota
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível registrar a compra e os pontos na planilha.' });
+  }
+});
+
+app.post('/api/transactions/:id/approve', requireAuth, requireManager, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  try {
+    const [transactions, clients] = await Promise.all([readSheet('transacoes'), readSheet('clientes')]);
+    const transaction = transactions.find(item => String(item.id) === id);
+    if (!transaction || transaction.status !== 'pendente') {
+      return res.status(404).json({ error: 'Lançamento pendente não encontrado.' });
+    }
+    const client = clients.find(item => String(item.id) === String(transaction.clienteId));
+    if (!client) return res.status(404).json({ error: 'Cliente não encontrado.' });
+    const points = Number(transaction.pontosGerados || 0);
+    const amount = Number(transaction.valorCompra || 0);
+    const totalPontosAcumulados = Number(client.totalPontosAcumulados || 0) + points;
+    const clientChanges = {
+      saldoPontos: Number(client.saldoPontos || 0) + points,
+      totalPontosAcumulados,
+      totalGastoHistorico: Number((Number(client.totalGastoHistorico || 0) + amount).toFixed(2)),
+      nivel: clientLevel(totalPontosAcumulados)
+    };
+    const transactionChanges = {
+      status: 'aprovado',
+      aprovadoPorUsuarioId: req.user.id,
+      aprovadoPorUsuarioNome: req.user.nome,
+      aprovadoEm: new Date().toISOString()
+    };
+    await updateObjectById('clientes', client.id, clientChanges);
+    await updateObjectById('transacoes', id, transactionChanges);
+    res.json({
+      transaction: { id, ...transactionChanges },
+      client: { id: client.id, ...clientChanges }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível aprovar o lançamento.' });
+  }
+});
+
+app.post('/api/transactions/:id/reject', requireAuth, requireManager, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  const motivo = cleanText(req.body?.motivo, 300);
+  if (motivo.length < 3) return res.status(400).json({ error: 'Informe o motivo da rejeição.' });
+  try {
+    const transactions = await readSheet('transacoes');
+    const transaction = transactions.find(item => String(item.id) === id);
+    if (!transaction || transaction.status !== 'pendente') {
+      return res.status(404).json({ error: 'Lançamento pendente não encontrado.' });
+    }
+    const updated = await updateObjectById('transacoes', id, {
+      status: 'rejeitado',
+      rejeitadoPorUsuarioId: req.user.id,
+      rejeitadoPorUsuarioNome: req.user.nome,
+      motivoRejeicao: motivo,
+      rejeitadoEm: new Date().toISOString()
+    });
+    if (!updated) return res.status(404).json({ error: 'Lançamento não encontrado.' });
+    res.json({ transaction: { id, status: 'rejeitado', motivoRejeicao: motivo } });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível rejeitar o lançamento.' });
+  }
+});
+
+app.post('/api/transactions/:id/reverse', requireAuth, requireManager, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  const motivo = cleanText(req.body?.motivo, 300);
+  if (motivo.length < 3) return res.status(400).json({ error: 'Informe o motivo do estorno.' });
+  try {
+    const [transactions, clients] = await Promise.all([readSheet('transacoes'), readSheet('clientes')]);
+    const transaction = transactions.find(item => String(item.id) === id);
+    if (!transaction || transaction.status !== 'aprovado') {
+      return res.status(404).json({ error: 'Lançamento aprovado não encontrado.' });
+    }
+    const client = clients.find(item => String(item.id) === String(transaction.clienteId));
+    if (!client) return res.status(404).json({ error: 'Cliente não encontrado.' });
+    const points = Number(transaction.pontosGerados || 0);
+    const amount = Number(transaction.valorCompra || 0);
+    const totalPontosAcumulados = Math.max(0, Number(client.totalPontosAcumulados || 0) - points);
+    const clientChanges = {
+      saldoPontos: Math.max(0, Number(client.saldoPontos || 0) - points),
+      totalPontosAcumulados,
+      totalGastoHistorico: Number(Math.max(0, Number(client.totalGastoHistorico || 0) - amount).toFixed(2)),
+      nivel: clientLevel(totalPontosAcumulados)
+    };
+    const transactionChanges = {
+      status: 'estornado',
+      motivoEstorno: motivo,
+      estornadoPorUsuarioId: req.user.id,
+      estornadoPorUsuarioNome: req.user.nome,
+      estornadoEm: new Date().toISOString()
+    };
+    await updateObjectById('clientes', client.id, clientChanges);
+    await updateObjectById('transacoes', id, transactionChanges);
+    res.json({
+      transaction: { id, ...transactionChanges },
+      client: { id: client.id, ...clientChanges }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível estornar o lançamento.' });
+  }
+});
+
 app.post('/api/redemptions/request', requireAuth, async (req, res) => {
   const clientId = cleanText(req.body?.clientId, 100);
   const couponId = cleanText(req.body?.couponId, 100);
@@ -499,7 +689,7 @@ app.post('/api/redemptions/:id/confirm', requireAuth, async (req, res) => {
     }
     const clientChanges = {
       saldoPontos: Number(client.saldoPontos) - challenge.points,
-      totalResgates: Number(client.totalResgates || 0) + 1
+      totalResgates: Number(client.totalResgates || 0) + challenge.points
     };
     await updateObjectById('clientes', client.id, clientChanges);
     await updateObjectById('resgates', redemptionId, {
@@ -517,6 +707,42 @@ app.post('/api/redemptions/:id/confirm', requireAuth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(502).json({ error: 'Não foi possível concluir o resgate na planilha.' });
+  }
+});
+
+app.post('/api/redemptions/:id/reverse', requireAuth, requireManager, async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  const motivo = cleanText(req.body?.motivo, 300);
+  if (motivo.length < 3) return res.status(400).json({ error: 'Informe o motivo do estorno.' });
+  try {
+    const [redemptions, clients] = await Promise.all([readSheet('resgates'), readSheet('clientes')]);
+    const redemption = redemptions.find(item => String(item.id) === id);
+    if (!redemption || redemption.status !== 'confirmado') {
+      return res.status(404).json({ error: 'Resgate confirmado não encontrado.' });
+    }
+    const client = clients.find(item => String(item.id) === String(redemption.clienteId));
+    if (!client) return res.status(404).json({ error: 'Cliente não encontrado.' });
+    const points = Number(redemption.pontosUtilizados || 0);
+    const clientChanges = {
+      saldoPontos: Number(client.saldoPontos || 0) + points,
+      totalResgates: Math.max(0, Number(client.totalResgates || 0) - points)
+    };
+    const redemptionChanges = {
+      status: 'estornado',
+      motivoEstorno: motivo,
+      estornadoPorUsuarioId: req.user.id,
+      estornadoPorUsuarioNome: req.user.nome,
+      estornadoEm: new Date().toISOString()
+    };
+    await updateObjectById('clientes', client.id, clientChanges);
+    await updateObjectById('resgates', id, redemptionChanges);
+    res.json({
+      redemption: { id, ...redemptionChanges },
+      client: { id: client.id, ...clientChanges }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível estornar o resgate.' });
   }
 });
 
