@@ -10,7 +10,10 @@ const port = Number(process.env.PORT || 3000);
 const production = process.env.NODE_ENV === 'production';
 const sessions = new Map();
 const loginAttempts = new Map();
+const redemptionChallenges = new Map();
 const sessionHours = 8;
+const codeLifetimeMs = 60_000;
+const entryWindowMs = 120_000;
 
 if (!process.env.ADMIN_USER || !process.env.ADMIN_PASSWORD) {
   throw new Error('Defina ADMIN_USER e ADMIN_PASSWORD antes de iniciar o servidor.');
@@ -64,6 +67,73 @@ function requireAuth(req, res, next) {
 
 function cleanText(value, max = 120) {
   return String(value ?? '').trim().slice(0, max);
+}
+
+function validEmail(value) {
+  return /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+$/i.test(value) && value.length <= 254;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function maskEmail(email) {
+  const [local, domain] = email.split('@');
+  return `${local.slice(0, 2)}${'*'.repeat(Math.max(2, local.length - 2))}@${domain}`;
+}
+
+function codeDigest(redemptionId, code) {
+  const secret = process.env.REDEMPTION_CODE_SECRET || process.env.ADMIN_PASSWORD;
+  return crypto.createHmac('sha256', secret).update(`${redemptionId}:${code}`).digest('hex');
+}
+
+async function sendRedemptionEmail({ to, clientName, code, points, discount, establishment }) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    throw new Error('Serviço de e-mail não configurado no servidor.');
+  }
+  const safeName = escapeHtml(clientName);
+  const safeEstablishment = escapeHtml(establishment);
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'content-type': 'application/json',
+      'user-agent': 'guaro-fidelidade/1.0'
+    },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM,
+      to: [to],
+      reply_to: process.env.EMAIL_REPLY_TO || undefined,
+      subject: `${code} é seu código de resgate — ${establishment}`,
+      html: `
+        <div style="background:#161616;padding:32px 16px;font-family:Arial,sans-serif;color:#fff">
+          <div style="max-width:560px;margin:auto;background:#212121;border:1px solid #3b3b3b;border-radius:18px;overflow:hidden">
+            <div style="height:6px;background:linear-gradient(90deg,#E32227,#FF7A00)"></div>
+            <div style="padding:32px">
+              <p style="margin:0 0 8px;color:#FFC529;font-size:12px;font-weight:700;text-transform:uppercase">Resgate de fidelidade</p>
+              <h1 style="margin:0 0 16px;font-size:26px">Olá, ${safeName}!</h1>
+              <p style="color:#d4d4d4;line-height:1.6">Use o código abaixo para confirmar seu desconto de <strong style="color:#fff">R$ ${Number(discount).toFixed(2)}</strong>, utilizando ${Number(points)} pontos.</p>
+              <div style="margin:28px 0;padding:22px;text-align:center;background:#161616;border:1px solid #4a4a4a;border-radius:14px">
+                <div style="font-size:38px;letter-spacing:10px;font-weight:800;color:#FFC529">${code}</div>
+              </div>
+              <p style="color:#fff;font-weight:700">Este código expira em 1 minuto.</p>
+              <p style="color:#a3a3a3;font-size:13px;line-height:1.5">Se você não solicitou este resgate, ignore esta mensagem e não compartilhe o código.</p>
+              <p style="margin:28px 0 0;color:#FF7A00;font-weight:700">${safeEstablishment}</p>
+            </div>
+          </div>
+        </div>`
+    })
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Falha no envio do e-mail (${response.status}): ${detail.slice(0, 180)}`);
+  }
+  return response.json();
 }
 
 function requireManager(req, res, next) {
@@ -168,11 +238,12 @@ app.get('/api/state', requireAuth, async (_req, res) => {
 app.post('/api/clients', requireAuth, async (req, res) => {
   const nome = cleanText(req.body?.nome, 100);
   const telefone = cleanText(req.body?.telefone, 20).replace(/[^\d+()-\s]/g, '');
+  const email = cleanText(req.body?.email, 254).toLowerCase();
   const cpf = cleanText(req.body?.cpf, 14).replace(/\D/g, '');
-  if (nome.length < 2 || telefone.length < 8) return res.status(400).json({ error: 'Nome ou telefone inválido.' });
+  if (nome.length < 2 || telefone.length < 8 || !validEmail(email)) return res.status(400).json({ error: 'Nome, telefone ou e-mail inválido.' });
 
   const client = {
-    id: crypto.randomUUID(), nome, telefone, cpf, saldoPontos: 0,
+    id: crypto.randomUUID(), nome, telefone, email, cpf, saldoPontos: 0,
     totalPontosAcumulados: 0, totalResgates: 0, totalGastoHistorico: 0,
     nivel: 'Bronze', dataCadastro: new Date().toISOString().slice(0, 10)
   };
@@ -193,17 +264,18 @@ app.put('/api/clients/:id', requireAuth, async (req, res) => {
   const id = cleanText(req.params.id, 100);
   const nome = cleanText(req.body?.nome, 100);
   const telefone = cleanText(req.body?.telefone, 20).replace(/[^\d+()-\s]/g, '');
+  const email = cleanText(req.body?.email, 254).toLowerCase();
   const cpf = cleanText(req.body?.cpf, 14).replace(/\D/g, '');
   const saldoPontos = Number(req.body?.saldoPontos);
 
-  if (!id || nome.length < 2 || telefone.length < 8) {
-    return res.status(400).json({ error: 'Nome ou telefone inválido.' });
+  if (!id || nome.length < 2 || telefone.length < 8 || !validEmail(email)) {
+    return res.status(400).json({ error: 'Nome, telefone ou e-mail inválido.' });
   }
   if (!Number.isInteger(saldoPontos) || saldoPontos < 0) {
     return res.status(400).json({ error: 'O saldo de pontos deve ser um número inteiro positivo.' });
   }
 
-  const changes = { nome, telefone, cpf, saldoPontos };
+  const changes = { nome, telefone, email, cpf, saldoPontos };
   try {
     const updated = await updateObjectById('clientes', id, changes);
     if (!updated) return res.status(404).json({ error: 'Cliente não encontrado na planilha.' });
@@ -245,6 +317,144 @@ app.delete('/api/clients/:id', requireAuth, requireManager, async (req, res) => 
   } catch (error) {
     console.error(error);
     res.status(502).json({ error: 'Não foi possível excluir o cliente da planilha.' });
+  }
+});
+
+app.post('/api/redemptions/request', requireAuth, async (req, res) => {
+  const clientId = cleanText(req.body?.clientId, 100);
+  const couponId = cleanText(req.body?.couponId, 100);
+  if (!clientId) {
+    return res.status(400).json({ error: 'Dados do resgate inválidos.' });
+  }
+
+  try {
+    const [clients, configRows, coupons] = await Promise.all([
+      readSheet('clientes'), readSheet('configuracao'), readSheet('cupons')
+    ]);
+    const client = clients.find(item => String(item.id) === clientId);
+    if (!client) return res.status(404).json({ error: 'Cliente não encontrado.' });
+    if (!validEmail(String(client.email || ''))) {
+      return res.status(400).json({ error: 'Cadastre um e-mail válido para o cliente antes do resgate.' });
+    }
+    const config = configRows[0] || {};
+    const coupon = couponId ? coupons.find(item => String(item.id) === couponId && item.ativo !== false) : null;
+    if (couponId && !coupon) return res.status(400).json({ error: 'Cupom inválido ou inativo.' });
+    const points = Number(coupon?.pontosNecessarios || config.valorResgatePontos);
+    const discount = Number(coupon?.valorDescontoReais || config.valorResgateReais);
+    const couponTitle = cleanText(coupon?.titulo, 120);
+    if (!Number.isInteger(points) || points <= 0 || !Number.isFinite(discount) || discount <= 0) {
+      return res.status(400).json({ error: 'Configuração de resgate inválida.' });
+    }
+    if (Number(client.saldoPontos || 0) < points) {
+      return res.status(400).json({ error: 'Saldo de pontos insuficiente.' });
+    }
+
+    const redemptionId = crypto.randomUUID();
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const now = Date.now();
+    const expiresAt = new Date(now + codeLifetimeMs).toISOString();
+    const entryWindowEndsAt = new Date(now + entryWindowMs).toISOString();
+    const establishment = config.nomeEstabelecimento || 'El Buen Venezolano Guaro';
+
+    await sendRedemptionEmail({
+      to: client.email, clientName: client.nome, code,
+      points, discount, establishment
+    });
+
+    const redemption = {
+      id: redemptionId, clienteId: client.id, clienteNome: client.nome,
+      clienteTelefone: client.telefone, clienteEmail: client.email,
+      usuarioId: req.user.id, usuarioNome: req.user.nome,
+      cupomId: couponId, cupomTitulo: couponTitle,
+      pontosUtilizados: points, valorDescontoReais: discount,
+      codigoConfirmacao: 'PROTEGIDO', codigoExpiraEm: expiresAt,
+      status: 'pendente', dataHora: new Date(now).toISOString()
+    };
+    await appendObject('resgates', redemption);
+    try {
+      await appendObject('email_logs', {
+        id: crypto.randomUUID(), emailDestino: client.email, clienteNome: client.nome,
+        assunto: `Código de resgate — ${establishment}`, tipo: 'codigo_resgate',
+        codigoRef: redemptionId, status: 'enviado', dataHora: new Date(now).toISOString()
+      });
+    } catch (logError) {
+      console.warn('E-mail enviado, mas a aba email_logs ainda não está disponível:', logError.message);
+    }
+    redemptionChallenges.set(redemptionId, {
+      digest: codeDigest(redemptionId, code),
+      clientId: client.id,
+      userId: req.user.id,
+      points,
+      discount,
+      expiresAt: now + codeLifetimeMs,
+      entryWindowEndsAt: now + entryWindowMs,
+      attempts: 0
+    });
+    res.status(201).json({
+      redemption: publicUser(redemption),
+      maskedEmail: maskEmail(client.email),
+      expiresAt,
+      entryWindowEndsAt
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: error.message || 'Não foi possível enviar o código por e-mail.' });
+  }
+});
+
+app.post('/api/redemptions/:id/confirm', requireAuth, async (req, res) => {
+  const redemptionId = cleanText(req.params.id, 100);
+  const code = cleanText(req.body?.code, 6).replace(/\D/g, '');
+  const challenge = redemptionChallenges.get(redemptionId);
+  if (!challenge || challenge.userId !== req.user.id) {
+    return res.status(404).json({ error: 'Solicitação de resgate não encontrada. Gere um novo código.' });
+  }
+  if (Date.now() > challenge.entryWindowEndsAt) {
+    redemptionChallenges.delete(redemptionId);
+    await updateObjectById('resgates', redemptionId, { status: 'expirado' }).catch(() => {});
+    return res.status(410).json({ error: 'O tempo de preenchimento terminou. Inicie um novo resgate.' });
+  }
+  if (Date.now() > challenge.expiresAt) {
+    await updateObjectById('resgates', redemptionId, { status: 'expirado' }).catch(() => {});
+    return res.status(410).json({ error: 'O código expirou após 1 minuto. Solicite um novo código.' });
+  }
+  challenge.attempts += 1;
+  if (challenge.attempts > 5) {
+    redemptionChallenges.delete(redemptionId);
+    await updateObjectById('resgates', redemptionId, { status: 'bloqueado' }).catch(() => {});
+    return res.status(429).json({ error: 'Muitas tentativas incorretas. Inicie um novo resgate.' });
+  }
+  const supplied = codeDigest(redemptionId, code);
+  if (!safeEqual(supplied, challenge.digest)) {
+    return res.status(400).json({ error: 'Código incorreto. Verifique o e-mail e tente novamente.' });
+  }
+
+  try {
+    const clients = await readSheet('clientes');
+    const client = clients.find(item => String(item.id) === challenge.clientId);
+    if (!client || Number(client.saldoPontos || 0) < challenge.points) {
+      return res.status(400).json({ error: 'Saldo insuficiente para concluir o resgate.' });
+    }
+    const clientChanges = {
+      saldoPontos: Number(client.saldoPontos) - challenge.points,
+      totalResgates: Number(client.totalResgates || 0) + 1
+    };
+    await updateObjectById('clientes', client.id, clientChanges);
+    await updateObjectById('resgates', redemptionId, {
+      status: 'confirmado',
+      confirmadoEm: new Date().toISOString()
+    });
+    await appendObject('auditoria', {
+      id: crypto.randomUUID(), dataHora: new Date().toISOString(), acao: 'resgate_pontos',
+      usuarioId: req.user.id, usuarioNome: req.user.nome, usuarioPerfil: req.user.perfil,
+      detalhes: `Resgate confirmado por e-mail: ${challenge.points} pontos`,
+      categoria: 'RESGATES', clienteRef: client.email, ip: req.ip
+    });
+    redemptionChallenges.delete(redemptionId);
+    res.json({ client: { id: client.id, ...clientChanges }, status: 'confirmado' });
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Não foi possível concluir o resgate na planilha.' });
   }
 });
 

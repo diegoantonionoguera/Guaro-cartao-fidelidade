@@ -26,6 +26,7 @@ class Store {
     editingCouponId = null;
     editingClientId = null;
     selectedCouponIdForRedemption = null;
+    pendingRedemption = null;
     managerAuthError = null;
     managerAuthTargetUserId = null;
     clientDetailsTab = 'lancamentos';
@@ -270,6 +271,7 @@ class Store {
         this.editingCouponId = null;
         this.editingClientId = null;
         this.selectedCouponIdForRedemption = null;
+        this.pendingRedemption = null;
         this.managerAuthError = null;
         this.notify();
     }
@@ -389,6 +391,7 @@ class Store {
         const changes = {
             nome: data.nome.trim(),
             telefone: data.telefone.trim(),
+            email: data.email.trim().toLowerCase(),
             cpf: data.cpf?.trim() || '',
             saldoPontos: Number(data.saldoPontos)
         };
@@ -509,14 +512,14 @@ class Store {
         this.notify();
     }
     // ACTIONS
-    async registerNewClient(nome, telefone, cpf) {
+    async registerNewClient(nome, telefone, email, cpf) {
         let newClient;
         try {
             const response = await fetch('/api/clients', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ nome, telefone, cpf })
+                body: JSON.stringify({ nome, telefone, email, cpf })
             });
             const data = await response.json();
             if (!response.ok)
@@ -641,71 +644,70 @@ class Store {
         this.showToast(`Lançamento da comanda ${tx.numeroComanda} estornado com sucesso!`);
         this.closeModal();
     }
-    createRedemptionRequest(clientId, pontosUtilizados, valorDescontoReais, cupomId, cupomTitulo) {
+    async createRedemptionRequest(clientId, pontosUtilizados, valorDescontoReais, cupomId, cupomTitulo) {
         const client = this.clients.find(c => c.id === clientId);
         if (!client || client.saldoPontos < pontosUtilizados) {
             this.showToast('Saldo de pontos insuficiente!', 'error');
             return null;
         }
-        const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiraEm = new Date(Date.now() + this.config.expiracaoCodigoMinutos * 60000).toISOString();
-        const rd = {
-            id: `rd-${Date.now()}`,
-            clienteId: client.id,
-            clienteNome: client.nome,
-            clienteTelefone: client.telefone,
-            usuarioId: this.currentUser.id,
-            usuarioNome: this.currentUser.nome,
-            cupomId,
-            cupomTitulo,
-            pontosUtilizados,
-            valorDescontoReais,
-            codigoConfirmacao: codigo,
-            codigoExpiraEm: expiraEm,
-            status: 'pendente',
-            dataHora: new Date().toISOString()
-        };
-        this.redemptions.unshift(rd);
-        const smsMsg = cupomTitulo
-            ? `${this.config.nomeEstabelecimento}: Seu código para o cupom "${cupomTitulo}" é: ${codigo}. Desconto: R$ ${valorDescontoReais.toFixed(2)} (${pontosUtilizados} pts). Válido por ${this.config.expiracaoCodigoMinutos} min.`
-            : `${this.config.nomeEstabelecimento}: Seu código de autorização de resgate de R$ ${valorDescontoReais.toFixed(2)} é: ${codigo}. Válido por ${this.config.expiracaoCodigoMinutos} minutos.`;
-        this.sendSms(client.telefone, client.nome, smsMsg, 'codigo_resgate', codigo);
-        this.showToast(`Código SMS enviado para ${client.nome}! (${codigo})`, 'info');
-        return rd;
+        if (!client.email) {
+            this.showToast('Cadastre o e-mail do cliente antes de solicitar o resgate.', 'error');
+            return null;
+        }
+        try {
+            const response = await fetch('/api/redemptions/request', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    clientId, points: pontosUtilizados, discount: valorDescontoReais,
+                    couponId: cupomId, couponTitle: cupomTitulo
+                })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível enviar o código por e-mail.');
+            this.pendingRedemption = {
+                ...result.redemption,
+                maskedEmail: result.maskedEmail,
+                expiresAt: result.expiresAt,
+                entryWindowEndsAt: result.entryWindowEndsAt
+            };
+            this.redemptions.unshift(result.redemption);
+            this.showToast(`Código enviado para ${result.maskedEmail}.`, 'info');
+            return this.pendingRedemption;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
+            return null;
+        }
     }
-    confirmRedemption(redemptionId, codigoEntered) {
+    async confirmRedemption(redemptionId, codigoEntered) {
         const rd = this.redemptions.find(r => r.id === redemptionId);
-        if (!rd) {
-            this.showToast('Solicitação de resgate não encontrada.', 'error');
+        if (!rd)
             return false;
-        }
-        if (rd.status !== 'pendente') {
-            this.showToast('Este resgate já foi processado ou expirou.', 'error');
-            return false;
-        }
-        if (new Date() > new Date(rd.codigoExpiraEm)) {
-            rd.status = 'expirado';
-            this.showToast('O código SMS expirou! Gere um novo código.', 'error');
-            this.notify();
-            return false;
-        }
-        if (rd.codigoConfirmacao !== codigoEntered.trim()) {
-            this.showToast('Código SMS incorreto! Verifique e tente novamente.', 'error');
-            return false;
-        }
         const client = this.clients.find(c => c.id === rd.clienteId);
-        if (!client || client.saldoPontos < rd.pontosUtilizados) {
-            this.showToast('Saldo insuficiente para concluir o resgate.', 'error');
+        try {
+            const response = await fetch(`/api/redemptions/${encodeURIComponent(redemptionId)}/confirm`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ code: codigoEntered.trim() })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw new Error(result.error || 'Não foi possível confirmar o resgate.');
+            if (client)
+                Object.assign(client, result.client);
+            rd.status = 'confirmado';
+            this.showToast(`Resgate de R$ ${Number(rd.valorDescontoReais).toFixed(2)} aplicado com sucesso!`);
+            this.closeModal();
+            return true;
+        }
+        catch (error) {
+            this.showToast(error.message, 'error');
             return false;
         }
-        client.saldoPontos -= rd.pontosUtilizados;
-        client.totalResgates += rd.pontosUtilizados;
-        rd.status = 'confirmado';
-        this.addAuditLog('resgate_pontos', `Resgate de R$ ${rd.valorDescontoReais.toFixed(2)} (-${rd.pontosUtilizados} pts) confirmado via SMS para ${client.nome}`, undefined, client.telefone);
-        this.sendSms(client.telefone, client.nome, `${this.config.nomeEstabelecimento}: Resgate de R$ ${rd.valorDescontoReais.toFixed(2)} de desconto confirmado! (-${rd.pontosUtilizados} pts). Saldo atual: ${client.saldoPontos} pts.`, 'resgate_sucesso');
-        this.showToast(`Resgate de R$ ${rd.valorDescontoReais.toFixed(2)} APLICADO com sucesso!`);
-        this.closeModal();
-        return true;
     }
     estornarRedemption(rdId, motivo) {
         if (this.currentUser.perfil !== 'gerente') {

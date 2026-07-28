@@ -7,6 +7,34 @@ import { renderSmsDrawer } from './ui/smsDrawer';
 import { renderToast } from './ui/toast';
 import { renderLoginView } from './ui/login';
 let currentPendingRedemption = null;
+let redemptionTimerId = null;
+function startRedemptionTimer(redemption) {
+    if (redemptionTimerId)
+        clearInterval(redemptionTimerId);
+    const update = () => {
+        const timer = document.getElementById('redemption-entry-timer');
+        const status = document.getElementById('redemption-code-status');
+        const resend = document.getElementById('btn-resend-email-code');
+        if (!timer)
+            return;
+        const entryRemaining = Math.max(0, new Date(redemption.entryWindowEndsAt).getTime() - Date.now());
+        const codeRemaining = Math.max(0, new Date(redemption.expiresAt).getTime() - Date.now());
+        const seconds = Math.ceil(entryRemaining / 1000);
+        timer.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+        if (codeRemaining <= 0 && status) {
+            status.textContent = entryRemaining > 0
+                ? 'Código expirado. Solicite um novo código.'
+                : 'Tempo de preenchimento encerrado.';
+            status.className = 'text-[11px] font-semibold text-red-300';
+            if (resend && entryRemaining > 0)
+                resend.classList.remove('hidden');
+        }
+        if (entryRemaining <= 0)
+            clearInterval(redemptionTimerId);
+    };
+    update();
+    redemptionTimerId = setInterval(update, 1000);
+}
 function renderSalesVolumeChart(container) {
     const totals = new Map();
     store.transactions
@@ -75,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 function setupEventDelegation() {
     // Global Click Event Delegation
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', async (e) => {
         const target = e.target;
         if (!target)
             return;
@@ -226,6 +254,8 @@ function setupEventDelegation() {
         // Modal Actions & Closes
         if (target.closest('#btn-close-modal') || target.closest('#btn-close-modal-alt')) {
             currentPendingRedemption = null;
+            if (redemptionTimerId)
+                clearInterval(redemptionTimerId);
             store.closeModal();
             return;
         }
@@ -248,27 +278,26 @@ function setupEventDelegation() {
             return;
         }
         // Redemption Flow Buttons
-        const generateSmsBtn = target.closest('#btn-generate-sms-code');
-        if (generateSmsBtn) {
-            const clientId = generateSmsBtn.dataset.clientId;
+        const generateEmailBtn = target.closest('#btn-generate-email-code, #btn-resend-email-code');
+        if (generateEmailBtn) {
+            const clientId = generateEmailBtn.dataset.clientId;
             if (clientId) {
-                const rd = store.createRedemptionRequest(clientId, store.config.valorResgatePontos, store.config.valorResgateReais);
+                generateEmailBtn.disabled = true;
+                const rd = await store.createRedemptionRequest(clientId, store.config.valorResgatePontos, store.config.valorResgateReais);
                 if (rd) {
                     currentPendingRedemption = rd;
-                    const box = document.getElementById('sms-verification-box');
-                    if (box)
-                        box.classList.remove('hidden');
-                    generateSmsBtn.classList.add('hidden');
+                    startRedemptionTimer(rd);
                 }
             }
             return;
         }
-        if (target.closest('#btn-confirm-sms-code')) {
-            const codeInput = document.getElementById('input-sms-code-entered');
+        if (target.closest('#btn-confirm-email-code')) {
+            const codeInput = document.getElementById('input-email-code-entered');
             if (codeInput && currentPendingRedemption) {
-                const success = store.confirmRedemption(currentPendingRedemption.id, codeInput.value);
+                const success = await store.confirmRedemption(currentPendingRedemption.id, codeInput.value);
                 if (success) {
                     currentPendingRedemption = null;
+                    clearInterval(redemptionTimerId);
                 }
             }
             return;
@@ -337,9 +366,10 @@ function setupEventDelegation() {
             const formData = new FormData(target);
             const nome = formData.get('nome');
             const telefone = formData.get('telefone');
+            const email = formData.get('email');
             const cpf = formData.get('cpf');
-            if (nome && telefone) {
-                await store.registerNewClient(nome, telefone, cpf);
+            if (nome && telefone && email) {
+                await store.registerNewClient(nome, telefone, email, cpf);
             }
             return;
         }
@@ -348,13 +378,14 @@ function setupEventDelegation() {
             const clientId = formData.get('clientId');
             const nome = (formData.get('nome') || '').trim();
             const telefone = (formData.get('telefone') || '').trim();
+            const email = (formData.get('email') || '').trim();
             const cpf = (formData.get('cpf') || '').trim();
             const saldoPontos = Number(formData.get('saldoPontos'));
-            if (!clientId || nome.length < 2 || telefone.length < 8 || !Number.isInteger(saldoPontos) || saldoPontos < 0) {
-                store.showToast('Confira o nome, telefone e saldo de pontos.', 'error');
+            if (!clientId || nome.length < 2 || telefone.length < 8 || !email.includes('@') || !Number.isInteger(saldoPontos) || saldoPontos < 0) {
+                store.showToast('Confira o nome, telefone, e-mail e saldo de pontos.', 'error');
                 return;
             }
-            await store.saveClientInfo(clientId, { nome, telefone, cpf, saldoPontos });
+            await store.saveClientInfo(clientId, { nome, telefone, email, cpf, saldoPontos });
             return;
         }
         if (target.id === 'form-add-points') {

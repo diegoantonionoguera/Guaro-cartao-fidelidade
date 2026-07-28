@@ -58,7 +58,7 @@ export const INITIAL_CONFIG = {
     valorResgatePontos: 100, // 100 pontos
     valorResgateReais: 10.0, // R$ 10,00 de desconto
     cotaDiariaPadrao: 500,
-    expiracaoCodigoMinutos: 5,
+    expiracaoCodigoMinutos: 1,
     nomeEstabelecimento: 'El Buen Venezolano Guaro'
 };
 const todayISO = new Date().toISOString();

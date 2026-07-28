@@ -68,7 +68,22 @@ function renderNewClientModal() {
               placeholder="Ex: (11) 98765-4321"
               class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-white/30 rounded-xl text-sm text-white placeholder-zinc-500 font-mono"
             />
-            <span class="text-[10px] text-zinc-500 font-mono">Usado para validação por SMS nos resgates.</span>
+            <span class="text-[10px] text-zinc-500">Contato do cliente para atendimento.</span>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              E-mail <span class="text-amber-400">*</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              required
+              autocomplete="email"
+              placeholder="cliente@email.com"
+              class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white placeholder-zinc-500"
+            />
+            <span class="text-[10px] text-zinc-500">O código de resgate será enviado para este endereço.</span>
           </div>
 
           <div class="space-y-1.5">
@@ -132,6 +147,10 @@ function renderEditClientModal() {
           <div class="space-y-1.5">
             <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">WhatsApp / celular</label>
             <input type="text" name="telefone" required minlength="8" value="${escapeAttribute(client.telefone)}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">E-mail</label>
+            <input type="email" name="email" required autocomplete="email" value="${escapeAttribute(client.email)}" class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white" />
           </div>
           <div class="space-y-1.5">
             <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">CPF</label>
@@ -264,6 +283,7 @@ function renderRedemptionModal() {
     const rewardThreshold = store.config.valorResgatePontos;
     const rewardValueR$ = store.config.valorResgateReais;
     const canRedeem = client.saldoPontos >= rewardThreshold;
+    const pending = store.pendingRedemption;
     return `
     <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div class="bg-[#09090b] border border-white/10 rounded-3xl w-full max-w-md max-h-[92vh] overflow-y-auto shadow-2xl transition-all">
@@ -278,11 +298,11 @@ function renderRedemptionModal() {
           </button>
           <div class="flex items-center space-x-2">
             <span class="text-[10px] uppercase font-mono tracking-widest px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 font-bold">
-              Validação SMS
+              Validação por e-mail
             </span>
           </div>
           <h2 class="text-xl font-extrabold text-white mt-1">Resgate de Desconto</h2>
-          <p class="text-xs text-zinc-400">Cliente: <strong class="text-white">${client.nome}</strong> (${client.telefone})</p>
+          <p class="text-xs text-zinc-400">Cliente: <strong class="text-white">${client.nome}</strong> · ${client.email || 'sem e-mail cadastrado'}</p>
         </div>
 
         <div class="p-6 space-y-5">
@@ -298,51 +318,72 @@ function renderRedemptionModal() {
             </div>
           </div>
 
-          ${!canRedeem ? `
+          ${!client.email ? `
+            <div class="bg-red-950/40 border border-red-500/30 p-4 rounded-2xl text-xs text-red-200 space-y-1">
+              <div class="font-bold">E-mail necessário</div>
+              <p>Edite o cadastro do cliente e informe um e-mail válido antes de iniciar o resgate.</p>
+            </div>
+          ` : !canRedeem ? `
             <div class="bg-red-950/40 border border-red-500/30 p-4 rounded-2xl text-xs text-red-200 space-y-1">
               <div class="font-bold">Saldo Insuficiente</div>
               <p>O cliente precisa de no mínimo ${rewardThreshold} pontos para resgatar R$ ${rewardValueR$.toFixed(2)} de desconto.</p>
             </div>
           ` : `
-            <!-- Step 1: Request SMS button if no pending redemption -->
             <div id="redemption-step-container" class="space-y-4">
               <div class="p-4 bg-white/[0.02] border border-white/10 rounded-2xl text-xs text-zinc-300 space-y-2 font-sans">
-                <p>Ao solicitar o resgate, um <strong>código de verificação de 6 dígitos</strong> será enviado via SMS para o WhatsApp do cliente.</p>
-                <p class="text-[11px] text-zinc-500 font-mono">Validade do código: ${store.config.expiracaoCodigoMinutos} minutos.</p>
+                <p>Um <strong>código de 6 dígitos</strong> será enviado para <strong class="text-white">${client.email}</strong>.</p>
+                <p class="text-[11px] text-zinc-500">O código expira em 1 minuto. O campo permanece disponível por 2 minutos.</p>
               </div>
 
               <button
-                id="btn-generate-sms-code"
+                id="btn-generate-email-code"
                 data-client-id="${client.id}"
-                class="w-full py-3.5 bg-white text-black hover:bg-zinc-200 font-extrabold rounded-xl text-xs uppercase tracking-wider shadow-xl transition-all cursor-pointer flex items-center justify-center space-x-2"
+                class="${pending ? 'hidden' : ''} w-full py-3.5 bg-gradient-to-r from-[#E32227] to-[#FF7A00] text-white font-extrabold rounded-xl text-xs uppercase tracking-wider shadow-xl transition-all cursor-pointer disabled:opacity-50"
               >
-                <span>Enviar Código por SMS</span>
+                <span>Enviar código por e-mail</span>
               </button>
 
-              <!-- Dynamic Code Verification Form container populated dynamically upon send -->
-              <div id="sms-verification-box" class="hidden space-y-4 pt-2 border-t border-white/10">
+              <div id="email-verification-box" class="${pending ? '' : 'hidden'} space-y-4 pt-2 border-t border-white/10">
                 <div class="bg-emerald-950/40 border border-emerald-500/30 p-3 rounded-xl text-xs text-emerald-200 flex items-center space-x-2">
-                  <span>✓ Código SMS enviado! Verifique o Simulador de SMS ou o telefone do cliente.</span>
+                  <span>Código enviado para ${pending?.maskedEmail || 'o e-mail cadastrado'}.</span>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <p id="redemption-code-status" class="text-[11px] font-semibold text-amber-300">Código válido por 1 minuto</p>
+                  <div class="text-right">
+                    <span class="block text-[9px] uppercase tracking-wider text-zinc-500">Tempo para preencher</span>
+                    <strong id="redemption-entry-timer" class="font-mono text-lg text-white">2:00</strong>
+                  </div>
                 </div>
 
                 <div class="space-y-1.5">
                   <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                    Digite o Código SMS de 6 dígitos:
+                    Código recebido por e-mail
                   </label>
                   <input
                     type="text"
-                    id="input-sms-code-entered"
+                    id="input-email-code-entered"
                     maxlength="6"
+                    inputmode="numeric"
+                    pattern="[0-9]{6}"
+                    autocomplete="one-time-code"
                     placeholder="000000"
                     class="w-full p-3 bg-white/[0.04] border border-white/20 focus:border-white/40 rounded-xl text-center text-2xl font-mono font-black text-amber-400 tracking-widest"
                   />
                 </div>
 
                 <button
-                  id="btn-confirm-sms-code"
+                  id="btn-confirm-email-code"
                   class="w-full py-3.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded-xl text-xs uppercase tracking-wider shadow-xl transition-all cursor-pointer"
                 >
                   Confirmar e Aplicar Desconto
+                </button>
+                <button
+                  id="btn-resend-email-code"
+                  data-client-id="${client.id}"
+                  class="hidden w-full py-3 text-orange-300 hover:text-white border border-orange-500/30 rounded-xl text-xs font-bold uppercase tracking-wider"
+                >
+                  Enviar novo código
                 </button>
               </div>
             </div>
@@ -466,7 +507,7 @@ function renderClientDetailsModal() {
                     <div>
                       <div class="font-bold text-emerald-400">Desconto R$ ${r.valorDescontoReais.toFixed(2)}</div>
                       <div class="text-[10px] text-zinc-400 mt-0.5">
-                        SMS: ${r.codigoConfirmacao} • Op: ${r.usuarioNome} em ${new Date(r.dataHora).toLocaleString('pt-BR')}
+                        Validação por e-mail • Op: ${r.usuarioNome} em ${new Date(r.dataHora).toLocaleString('pt-BR')}
                       </div>
                     </div>
 
@@ -635,13 +676,19 @@ function renderUserModal() {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="space-y-1.5">
-              <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Perfil</label>
-              <select name="perfil" class="w-full p-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white">
-                <option value="atendente" ${editingUser?.perfil === 'atendente' ? 'selected' : ''}>Atendente</option>
-                <option value="gerente" ${editingUser?.perfil === 'gerente' ? 'selected' : ''}>Gerente</option>
-              </select>
-            </div>
+            <fieldset class="space-y-1.5">
+              <legend class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">Perfil</legend>
+              <div class="profile-selector" role="radiogroup" aria-label="Perfil do usuário">
+                <label class="profile-choice">
+                  <input type="radio" name="perfil" value="atendente" ${!editingUser || editingUser.perfil === 'atendente' ? 'checked' : ''} />
+                  <span>Atendente</span>
+                </label>
+                <label class="profile-choice">
+                  <input type="radio" name="perfil" value="gerente" ${editingUser?.perfil === 'gerente' ? 'checked' : ''} />
+                  <span>Gerente</span>
+                </label>
+              </div>
+            </fieldset>
             <div class="space-y-1.5">
               <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Cota Diária</label>
               <input

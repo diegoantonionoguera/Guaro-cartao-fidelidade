@@ -4,7 +4,7 @@ const { GoogleSpreadsheet } = require('google-spreadsheet');
 
 const schemas = {
   clientes: [
-    'id', 'nome', 'telefone', 'cpf', 'saldoPontos',
+    'id', 'nome', 'telefone', 'email', 'cpf', 'saldoPontos',
     'totalPontosAcumulados', 'totalResgates', 'totalGastoHistorico',
     'nivel', 'dataCadastro', 'criadoPorUsuarioId', 'criadoPorUsuarioNome'
   ],
@@ -21,7 +21,7 @@ const schemas = {
     'estornadoPorUsuarioId', 'estornadoPorUsuarioNome', 'estornadoEm', 'dataHora'
   ],
   resgates: [
-    'id', 'clienteId', 'clienteNome', 'clienteTelefone', 'usuarioId',
+    'id', 'clienteId', 'clienteNome', 'clienteTelefone', 'clienteEmail', 'usuarioId',
     'usuarioNome', 'cupomId', 'cupomTitulo', 'pontosUtilizados',
     'valorDescontoReais', 'codigoConfirmacao', 'codigoExpiraEm', 'status',
     'motivoEstorno', 'estornadoPorUsuarioId', 'estornadoPorUsuarioNome',
@@ -30,6 +30,10 @@ const schemas = {
   sms_logs: [
     'id', 'telefoneDestino', 'clienteNome', 'mensagem',
     'tipo', 'codigoRef', 'dataHora', 'lida'
+  ],
+  email_logs: [
+    'id', 'emailDestino', 'clienteNome', 'assunto', 'tipo',
+    'codigoRef', 'status', 'dataHora'
   ],
   auditoria: [
     'id', 'dataHora', 'acao', 'usuarioId', 'usuarioNome', 'usuarioPerfil',
@@ -51,7 +55,7 @@ const initialConfig = {
   valorResgatePontos: 50,
   valorResgateReais: 10,
   cotaDiariaPadrao: 1000,
-  expiracaoCodigoMinutos: 10
+  expiracaoCodigoMinutos: 1
 };
 
 function requireEnvironment() {

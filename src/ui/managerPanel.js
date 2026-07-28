@@ -246,7 +246,7 @@ export function renderManagerPanel() {
                         <span>Cliente: ${rd.clienteNome}</span>
                       </div>
                       <div class="text-[11px] text-zinc-400 font-mono mt-0.5">
-                        -${rd.pontosUtilizados} pts • SMS ${rd.codigoConfirmacao} • Op: ${rd.usuarioNome} em ${new Date(rd.dataHora).toLocaleString('pt-BR')}
+                        -${rd.pontosUtilizados} pts • Validação por e-mail • Op: ${rd.usuarioNome} em ${new Date(rd.dataHora).toLocaleString('pt-BR')}
                       </div>
                     </div>
 
@@ -576,17 +576,18 @@ export function renderManagerPanel() {
 
             <div class="space-y-1.5 sm:col-span-2">
               <label class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                Expiração do SMS (Minutos)
+                Expiração do código por e-mail
               </label>
               <input
                 type="number"
                 step="1"
                 min="1"
                 name="expiracaoMin"
-                value="${store.config.expiracaoCodigoMinutos}"
+                value="1"
+                readonly
                 class="w-full p-3 bg-white/[0.04] border border-white/10 focus:border-white/30 rounded-xl text-white font-mono font-bold"
               />
-              <span class="text-[10px] text-zinc-500 font-mono">Padrão: 5 minutos</span>
+              <span class="text-[10px] text-zinc-500">Tempo de segurança fixo: 1 minuto.</span>
             </div>
           </div>
 

@@ -252,6 +252,62 @@
   border-radius: 0.8rem;
 }
 
+.profile-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  min-height: 3rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.profile-choice {
+  position: relative;
+  cursor: pointer;
+}
+
+.profile-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profile-choice span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding-inline: 0.75rem;
+  border-radius: 0.55rem;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition:
+    color 180ms var(--ease-premium),
+    background-color 180ms var(--ease-premium),
+    box-shadow 180ms var(--ease-premium);
+}
+
+.profile-choice:hover span {
+  color: var(--guaro-white);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.profile-choice input:checked + span {
+  color: var(--guaro-white);
+  background: var(--guaro-gradient);
+  box-shadow: 0 5px 14px -9px rgba(255, 122, 0, 0.9);
+}
+
+.profile-choice input:focus-visible + span {
+  outline: 3px solid color-mix(in srgb, var(--guaro-gold) 75%, transparent);
+  outline-offset: 2px;
+}
+
 .manager-hero {
   position: relative;
   overflow: hidden;

@@ -99,7 +99,8 @@ function renderClientCard(client, rewardThreshold) {
               <h3 class="font-extrabold text-white text-sm font-sans leading-tight group-hover:text-amber-400 transition-colors">
                 ${client.nome}
               </h3>
-              <p class="text-xs text-zinc-400 font-mono">${client.telefone}</p>
+              <p class="text-xs text-zinc-400">${client.telefone}</p>
+              ${client.email ? `<p class="text-[11px] text-zinc-500 truncate max-w-[13rem]">${client.email}</p>` : ''}
             </div>
           </div>
 
