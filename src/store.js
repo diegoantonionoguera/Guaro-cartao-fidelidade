@@ -33,6 +33,7 @@ class Store {
     // Toast notification
     toast = null;
     listeners = [];
+    lastServerSnapshot = '';
     constructor() {
         // Load from LocalStorage if available
         const savedUsers = localStorage.getItem('fidelidade_users');
@@ -71,12 +72,16 @@ class Store {
             this.notify();
         }
     }
-    async loadStateFromDatabase() {
+    async loadStateFromDatabase(options = {}) {
+        const { notify = true } = options;
         try {
             const res = await fetch('/api/state', { credentials: 'same-origin' });
             if (res.ok) {
                 const data = await res.json();
-                if (data.clients && data.clients.length > 0)
+                const serverSnapshot = JSON.stringify(data);
+                const changed = serverSnapshot !== this.lastServerSnapshot;
+                this.lastServerSnapshot = serverSnapshot;
+                if (Array.isArray(data.clients))
                     this.clients = data.clients;
                 if (data.users) {
                     this.users = data.users;
@@ -128,15 +133,20 @@ class Store {
                         lida: s.lida
                     }));
                 }
+                if (data.auditLogs)
+                    this.auditLogs = data.auditLogs;
                 if (data.config) {
                     this.config = data.config;
                 }
-                this.notify();
+                if (notify && changed)
+                    this.notify();
+                return changed;
             }
         }
         catch (e) {
             console.warn('Backend DB fetch error, using local fallback:', e);
         }
+        return false;
     }
     subscribe(listener) {
         this.listeners.push(listener);

@@ -8,6 +8,52 @@ import { renderToast } from './ui/toast';
 import { renderLoginView } from './ui/login';
 let currentPendingRedemption = null;
 let redemptionTimerId = null;
+let autoSyncTimerId = null;
+let autoSyncInProgress = false;
+let pendingScreenRefresh = false;
+// Mantém o consumo da API do Google Sheets abaixo dos limites do plano gratuito.
+const AUTO_SYNC_INTERVAL_MS = 15000;
+
+function isUserPerformingAction() {
+    if (store.activeModal !== 'none')
+        return true;
+    const activeElement = document.activeElement;
+    return Boolean(activeElement &&
+        activeElement !== document.body &&
+        activeElement.matches('input, textarea, select, [contenteditable="true"]'));
+}
+
+function applyPendingScreenRefresh() {
+    if (!pendingScreenRefresh || isUserPerformingAction())
+        return;
+    pendingScreenRefresh = false;
+    renderApp();
+}
+
+async function synchronizeInBackground() {
+    if (!store.isAuthenticated || autoSyncInProgress || document.visibilityState === 'hidden')
+        return;
+    autoSyncInProgress = true;
+    try {
+        const changed = await store.loadStateFromDatabase({ notify: false });
+        if (!changed)
+            return;
+        if (isUserPerformingAction()) {
+            pendingScreenRefresh = true;
+            return;
+        }
+        renderApp();
+    }
+    finally {
+        autoSyncInProgress = false;
+    }
+}
+
+function startAutomaticSynchronization() {
+    if (autoSyncTimerId)
+        clearInterval(autoSyncTimerId);
+    autoSyncTimerId = setInterval(synchronizeInBackground, AUTO_SYNC_INTERVAL_MS);
+}
 function startRedemptionTimer(redemption) {
     if (redemptionTimerId)
         clearInterval(redemptionTimerId);
@@ -100,6 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
     renderApp();
     store.subscribe(renderApp);
     setupEventDelegation();
+    startAutomaticSynchronization();
+    document.addEventListener('focusout', () => {
+        setTimeout(applyPendingScreenRefresh, 150);
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible')
+            synchronizeInBackground();
+    });
+    window.addEventListener('focus', synchronizeInBackground);
 });
 function setupEventDelegation() {
     // Global Click Event Delegation
