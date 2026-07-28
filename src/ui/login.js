@@ -11,9 +11,9 @@ export function renderLoginView() {
           </div>
           <div>
             <h1 class="text-xl font-black text-white tracking-tight font-sans">
-              FideliBurguer Artisan
+              El Buen Venezolano Guaro
             </h1>
-            <p class="text-xs text-zinc-400 mt-1 font-mono">Sistema de Gestão de Fidelidade & Recompensas</p>
+            <p class="text-xs text-zinc-400 mt-1 font-mono">Sistema de fidelidade e recompensas</p>
           </div>
         </div>
 

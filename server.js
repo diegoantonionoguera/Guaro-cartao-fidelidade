@@ -17,6 +17,7 @@ if (!process.env.ADMIN_USER || !process.env.ADMIN_PASSWORD) {
 }
 
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '32kb' }));
 app.use((req, res, next) => {
   res.set({
@@ -160,4 +161,4 @@ if (!production) {
   app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
 }
 
-app.listen(port, '0.0.0.0', () => console.log(`FideliBurguer em http://localhost:${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`El Buen Venezolano Guaro em http://localhost:${port}`));

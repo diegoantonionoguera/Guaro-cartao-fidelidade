@@ -2,7 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# FideliBurguer
+# El Buen Venezolano Guaro
 
 Aplicação em HTML, CSS e JavaScript com uma API Express protegida e persistência em Google Sheets.
 
