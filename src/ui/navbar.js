@@ -6,7 +6,7 @@ export function renderNavbar() {
     const remainingQuota = store.getRemainingQuotaForUser(currentUser.id);
     const totalLancadosHoje = store.getPontosLancadosHoje(currentUser.id);
     return `
-    <header class="bg-[#161616]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
+    <header class="app-header bg-[#161616]/92 backdrop-blur-md sticky top-3 z-40">
       <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div class="mobile-nav-layout flex items-center justify-between min-h-16 sm:h-20 gap-2 py-2 sm:py-0">
           

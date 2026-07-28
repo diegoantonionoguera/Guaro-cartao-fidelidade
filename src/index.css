@@ -1,6 +1,13 @@
+@import "@fontsource/poppins/latin-400.css";
+@import "@fontsource/poppins/latin-500.css";
+@import "@fontsource/poppins/latin-600.css";
+@import "@fontsource/poppins/latin-700.css";
+@import "@fontsource/bebas-neue/latin-400.css";
 @import "tailwindcss";
 
 @theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Arial Narrow", sans-serif;
   --color-amber-300: #FFC529;
   --color-amber-400: #FF7A00;
   --color-amber-500: #E32227;
@@ -32,6 +39,12 @@
   --guaro-info: #3BA7FF;
   --guaro-error: #C81E1E;
   --guaro-gradient: linear-gradient(135deg, var(--guaro-red) 0%, var(--guaro-orange) 100%);
+  --surface-1: #1B1B1B;
+  --surface-2: #212121;
+  --surface-3: #292929;
+  --line-soft: rgba(255, 255, 255, 0.075);
+  --line-warm: rgba(255, 122, 0, 0.26);
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -41,7 +54,7 @@
 
   body {
     @apply text-zinc-100 antialiased min-h-screen;
-    font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+    font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
     background-color: var(--guaro-black);
     background-image:
       radial-gradient(at 0% 0%, rgba(227, 34, 39, 0.14) 0, transparent 38%),
@@ -57,8 +70,9 @@
   }
 
   h1, h2, h3 {
-    font-family: "Bebas Neue", "Anton", Impact, sans-serif;
-    letter-spacing: 0.025em;
+    font-family: "Bebas Neue", "Arial Narrow", sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.018em;
     text-wrap: balance;
   }
 
@@ -174,6 +188,116 @@
   box-shadow: 0 12px 30px -12px rgba(227, 34, 39, 0.8);
 }
 
+.app-header {
+  width: min(calc(100% - 1.5rem), 88rem);
+  margin-inline: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 1rem;
+  box-shadow: 0 18px 50px -38px rgba(227, 34, 39, 0.75);
+}
+
+.app-header .brand-mark {
+  border-radius: 0.8rem;
+}
+
+.manager-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% -30%, rgba(255, 122, 0, 0.16), transparent 38%),
+    var(--surface-1);
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 20px 50px -38px rgba(227, 34, 39, 0.65);
+}
+
+.manager-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 122, 0, 0.62), transparent);
+}
+
+.section-toolbar {
+  background: var(--surface-1);
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 16px 36px -32px rgba(227, 34, 39, 0.7);
+}
+
+.team-grid {
+  align-items: start;
+}
+
+.team-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 16.5rem;
+  background: var(--surface-1);
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 18px 42px -36px rgba(0, 0, 0, 0.92);
+  transition:
+    transform 420ms var(--ease-premium),
+    border-color 420ms var(--ease-premium),
+    box-shadow 420ms var(--ease-premium);
+}
+
+.team-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--guaro-red), var(--guaro-orange), transparent 82%);
+  opacity: 0.72;
+}
+
+.team-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-warm);
+  box-shadow: 0 24px 52px -38px rgba(227, 34, 39, 0.72);
+}
+
+.team-avatar {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.875rem;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background:
+    linear-gradient(145deg, rgba(255, 197, 41, 0.18), transparent 46%),
+    var(--guaro-gradient);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 14px 28px -18px rgba(227, 34, 39, 0.9);
+}
+
+.team-metrics {
+  background: rgba(0, 0, 0, 0.22);
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.surface-enter {
+  animation: surfaceEnter 620ms var(--ease-premium) both;
+}
+
+@keyframes surfaceEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
 button.bg-white,
 button.bg-amber-400 {
   color: var(--guaro-white) !important;
@@ -228,6 +352,14 @@ button:active {
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
   }
 
+  .app-header {
+    top: 0;
+    width: 100%;
+    border-inline: 0;
+    border-top: 0;
+    border-radius: 0 0 1rem 1rem;
+  }
+
   .mobile-nav-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -278,6 +410,16 @@ button:active {
     color: #a1a1aa;
   }
 
+  .manager-hero,
+  .section-toolbar,
+  .team-card {
+    border-radius: 1rem;
+  }
+
+  .team-card {
+    min-height: auto;
+  }
+
   /* Mobile dialogs behave as reachable bottom sheets. */
   #modals-container > div.fixed.inset-0 {
     align-items: flex-end;
@@ -301,6 +443,12 @@ button:active {
 
   table {
     font-size: 0.75rem;
+  }
+}
+
+@media (hover: none) {
+  .team-card:hover {
+    transform: none;
   }
 }
 

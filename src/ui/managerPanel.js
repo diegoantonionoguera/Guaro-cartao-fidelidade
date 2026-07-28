@@ -49,19 +49,19 @@ export function renderManagerPanel() {
     <div class="space-y-6">
       
       <!-- Header Banner -->
-      <div class="bg-[#09090b]/80 backdrop-blur-md p-4 sm:p-6 rounded-3xl border border-white/10 shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <section class="manager-hero surface-enter p-5 sm:p-7 rounded-2xl flex flex-col lg:flex-row lg:items-end justify-between gap-5">
         <div>
           <div class="flex items-center space-x-2">
             <span class="p-1.5 bg-white/10 text-amber-400 rounded-xl border border-white/20">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             </span>
-            <h1 class="text-xl font-extrabold text-white">Painel Gerencial & Controle</h1>
+            <h1 class="text-2xl sm:text-3xl text-white">Painel gerencial</h1>
           </div>
-          <p class="text-xs text-zinc-400 mt-1">Aprovação de cotas, gestão de estornos, métricas de vendas e parâmetros do sistema.</p>
+          <p class="text-xs sm:text-sm text-zinc-400 mt-1.5 max-w-2xl">Aprovações, equipe, recompensas e indicadores da operação em um só lugar.</p>
         </div>
 
         <!-- Tab Selection -->
-        <div class="flex items-center space-x-1 sm:space-x-1.5 bg-black/60 p-1.5 rounded-2xl border border-white/10 overflow-x-auto whitespace-nowrap max-w-full">
+        <nav aria-label="Seções da gerência" class="flex items-center space-x-1 bg-black/45 p-1.5 rounded-xl ring-1 ring-white/10 overflow-x-auto whitespace-nowrap max-w-full">
           <button
             data-manager-subtab="pendentes"
             class="px-3.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center space-x-1.5 cursor-pointer ${activeSubTab === 'pendentes' ? 'bg-white text-black font-extrabold' : 'text-zinc-400 hover:text-white'}"
@@ -80,14 +80,14 @@ export function renderManagerPanel() {
             data-manager-subtab="usuarios"
             class="px-3.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center space-x-1.5 cursor-pointer ${activeSubTab === 'usuarios' ? 'bg-white text-black font-extrabold' : 'text-zinc-400 hover:text-white'}"
           >
-            <span>👥 Usuários (${store.users.length})</span>
+            <span>Usuários (${store.users.length})</span>
           </button>
 
           <button
             data-manager-subtab="cupons"
             class="px-3.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center space-x-1.5 cursor-pointer ${activeSubTab === 'cupons' ? 'bg-white text-black font-extrabold' : 'text-zinc-400 hover:text-white'}"
           >
-            <span>🏷️ Cupons (${store.coupons.length})</span>
+            <span>Cupons (${store.coupons.length})</span>
           </button>
 
           <button
@@ -110,8 +110,8 @@ export function renderManagerPanel() {
           >
             <span>Auditoria</span>
           </button>
-        </div>
-      </div>
+        </nav>
+      </section>
 
       <!-- SUBTAB 1: PENDENTES DE APROVAÇÃO -->
       ${activeSubTab === 'pendentes' ? `
@@ -268,35 +268,34 @@ export function renderManagerPanel() {
       <!-- SUBTAB 3: GESTÃO DE USUÁRIOS E ATENDENTES -->
       ${activeSubTab === 'usuarios' ? `
         <div class="space-y-6">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#09090b]/60 p-4 sm:p-5 rounded-2xl border border-white/10 backdrop-blur-md">
+          <div class="section-toolbar flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl">
             <div>
-              <h2 class="text-base font-extrabold text-white flex items-center gap-2">
-                <span>👥 Equipe & Gestão de Usuários</span>
-              </h2>
-              <p class="text-xs text-zinc-400 mt-0.5">Cadastre, edite e gerencie atendentes, gerentes e suas cotas diárias de pontos.</p>
+              <h2 class="text-xl sm:text-2xl text-white">Equipe e acessos</h2>
+              <p class="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl">Gerencie atendentes, gerentes e os limites diários de lançamento.</p>
             </div>
             <button
               data-action="add-user"
               class="px-4 py-2.5 bg-white text-black hover:bg-zinc-200 font-bold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center space-x-1.5 shrink-0"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-              <span>+ Criar Usuário</span>
+              <span>Criar usuário</span>
             </button>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="team-grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             ${store.users.map(u => {
         const pontosLancadosHoje = store.getPontosLancadosHoje(u.id);
         const isSelf = u.id === store.currentUser.id;
         const isGerente = u.perfil === 'gerente';
+        const iniciais = u.nome.split(' ').filter(Boolean).slice(0, 2).map(parte => parte[0]).join('').toUpperCase();
         return `
-                <div class="bg-[#09090b] border border-white/10 hover:border-white/20 rounded-2xl p-5 space-y-4 shadow-xl flex flex-col justify-between relative">
+                <article class="team-card surface-enter rounded-2xl p-5 sm:p-6 space-y-5 flex flex-col justify-between">
                   <div class="flex items-start justify-between gap-2">
                     <div class="flex items-center space-x-3">
-                      <img src="${u.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}" class="w-11 h-11 rounded-xl object-cover border border-white/20" />
-                      <div>
-                        <h3 class="font-extrabold text-white text-sm leading-tight">${u.nome}</h3>
-                        <p class="text-xs text-zinc-400 font-mono">@${u.login}</p>
+                      <div class="team-avatar" aria-hidden="true">${iniciais}</div>
+                      <div class="min-w-0">
+                        <h3 class="font-sans font-semibold text-white text-sm leading-tight truncate">${u.nome}</h3>
+                        <p class="text-xs text-zinc-400 mt-1">@${u.login}</p>
                       </div>
                     </div>
                     <span class="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${isGerente ? 'bg-amber-400/10 text-amber-300 border-amber-400/30' : 'bg-blue-400/10 text-blue-300 border-blue-400/30'}">
@@ -304,18 +303,18 @@ export function renderManagerPanel() {
                     </span>
                   </div>
 
-                  <div class="bg-black/40 p-3 rounded-xl border border-white/10 space-y-1.5 text-xs font-mono">
+                  <div class="team-metrics -mx-5 sm:-mx-6 px-5 sm:px-6 py-4 space-y-2 text-xs">
                     <div class="flex justify-between">
-                      <span class="text-zinc-400 font-sans">Cota Diária de Pontos:</span>
-                      <span class="font-bold text-amber-400">${u.cotaDiariaPontos} pts</span>
+                      <span class="text-zinc-400">Cota diária</span>
+                      <span class="font-semibold tabular-nums text-amber-300">${u.cotaDiariaPontos} pts</span>
                     </div>
                     <div class="flex justify-between">
-                      <span class="text-zinc-400 font-sans">Lançados Hoje:</span>
-                      <span class="font-bold text-emerald-400">${pontosLancadosHoje} pts</span>
+                      <span class="text-zinc-400">Lançados hoje</span>
+                      <span class="font-semibold tabular-nums text-emerald-300">${pontosLancadosHoje} pts</span>
                     </div>
                   </div>
 
-                  <div class="flex items-center space-x-2 pt-2 border-t border-white/5">
+                  <div class="flex items-center gap-2">
                     <button
                       data-action="edit-user"
                       data-user-id="${u.id}"
@@ -336,7 +335,7 @@ export function renderManagerPanel() {
                       </button>
                     ` : ''}
                   </div>
-                </div>
+                </article>
               `;
     }).join('')}
           </div>
@@ -367,7 +366,7 @@ export function renderManagerPanel() {
               <div class="bg-[#09090b] border border-white/10 hover:border-white/20 rounded-2xl p-5 space-y-4 shadow-xl flex flex-col justify-between relative overflow-hidden ${!c.ativo ? 'opacity-50' : ''}">
                 <div>
                   <div class="flex items-start justify-between gap-2">
-                    <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest border ${c.ativo ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-zinc-800 text-zinc-200 border-zinc-600'}">
+                    <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest border ${c.ativo ? 'bg-emerald-950 text-white border-emerald-500/30' : 'bg-zinc-800 text-white border-zinc-600'}">
                       ${c.ativo ? '● Ativo' : '○ Inativo'}
                     </span>
                     <span class="text-xl font-black text-amber-400 font-mono">
