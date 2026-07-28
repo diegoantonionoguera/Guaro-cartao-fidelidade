@@ -77,6 +77,12 @@ class Store {
                 const data = await res.json();
                 if (data.clients && data.clients.length > 0)
                     this.clients = data.clients;
+                if (data.users) {
+                    this.users = data.users;
+                    const refreshedCurrentUser = data.users.find(user => user.id === this.currentUser.id);
+                    if (refreshedCurrentUser)
+                        this.currentUser = refreshedCurrentUser;
+                }
                 if (data.transactions) {
                     this.transactions = data.transactions.map((t) => ({
                         id: t.id,
