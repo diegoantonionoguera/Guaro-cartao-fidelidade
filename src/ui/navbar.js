@@ -4,7 +4,9 @@ export function renderNavbar() {
     const unreadSms = store.smsLogs.filter(s => !s.lida).length;
     const pendingTxs = store.transactions.filter(t => t.status === 'pendente').length;
     const remainingQuota = store.getRemainingQuotaForUser(currentUser.id);
-    const totalLancadosHoje = store.getPontosLancadosHoje(currentUser.id);
+    const transactionsToday = store.getTransactionsToday(currentUser.id);
+    const totalLancadosHoje = transactionsToday.reduce((total, transaction) => total + Number(transaction.pontosGerados || 0), 0);
+    const totalComprasHoje = transactionsToday.reduce((total, transaction) => total + Number(transaction.valorCompra || 0), 0);
     return `
     <header class="app-header bg-[#161616]/92 backdrop-blur-md sticky top-3 z-40">
       <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -59,32 +61,44 @@ export function renderNavbar() {
           <!-- Right Controls -->
           <div class="mobile-nav-actions flex flex-wrap items-center justify-end gap-1.5 sm:gap-3">
             
-            <!-- Cota Indicator Button -->
-            <div class="relative">
+            <!-- Indicador dos lançamentos do dia -->
+            <div class="daily-counter relative">
               <button
                 id="btn-quota-toggle"
-                class="px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs text-zinc-300 font-mono transition-all flex items-center space-x-1.5 cursor-pointer"
+                class="daily-counter-button cursor-pointer"
+                aria-label="${totalLancadosHoje} pontos lançados hoje em ${transactionsToday.length} lançamentos"
               >
-                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                <span class="hidden sm:inline text-zinc-400 text-[11px]">Cota Hoje:</span>
-                <strong class="quota-value ${remainingQuota < 100 ? 'text-amber-400 font-bold' : 'text-white'}">
-                  ${remainingQuota} pts
-                </strong>
+                <span class="daily-counter-icon">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </span>
+                <span class="daily-counter-copy">
+                  <span>Lançados hoje</span>
+                  <strong>${totalLancadosHoje} pts</strong>
+                </span>
+                <span class="daily-counter-count">${transactionsToday.length}</span>
               </button>
 
               <!-- Quota Info Dropdown Tooltip -->
               ${store.showQuotaTooltip ? `
                 <div class="absolute right-0 mt-2 w-[85vw] max-w-xs bg-[#2E2E2E] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 text-xs backdrop-blur-xl">
                   <div class="flex items-center justify-between pb-2 border-b border-white/10">
-                    <span class="font-bold uppercase tracking-wider text-zinc-200">Controle de Cota Diária</span>
+                    <span class="font-bold uppercase tracking-wider text-zinc-200">Resumo de hoje</span>
                     <span class="text-[9px] uppercase tracking-widest bg-white/10 text-zinc-300 px-2 py-0.5 rounded-full font-mono">
                       ${currentUser.perfil}
                     </span>
                   </div>
                   <div class="py-3 space-y-2 font-mono">
                     <div class="flex justify-between text-zinc-400">
-                      <span>Lançados Hoje:</span>
+                      <span>Pontos lançados:</span>
                       <span class="text-white font-bold">${totalLancadosHoje} pts</span>
+                    </div>
+                    <div class="flex justify-between text-zinc-400">
+                      <span>Lançamentos aprovados:</span>
+                      <span class="text-white font-bold">${transactionsToday.length}</span>
+                    </div>
+                    <div class="flex justify-between text-zinc-400">
+                      <span>Valor das compras:</span>
+                      <span class="text-white font-bold">${totalComprasHoje.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                     </div>
                     <div class="flex justify-between text-zinc-400">
                       <span>Cota Total Permitida:</span>

@@ -204,6 +204,70 @@
   order: 3;
 }
 
+.daily-counter-button {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.4rem;
+  border: 1px solid var(--line-warm);
+  border-radius: 0.875rem;
+  color: var(--guaro-white);
+  background: rgba(255, 122, 0, 0.07);
+  transition:
+    border-color 180ms var(--ease-premium),
+    background-color 180ms var(--ease-premium);
+}
+
+.daily-counter-button:hover {
+  border-color: rgba(255, 197, 41, 0.55);
+  background: rgba(255, 122, 0, 0.12);
+}
+
+.daily-counter-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.625rem;
+  color: var(--guaro-white);
+  background: var(--guaro-gradient);
+}
+
+.daily-counter-copy {
+  display: grid;
+  justify-items: start;
+  line-height: 1.05;
+}
+
+.daily-counter-copy > span {
+  color: #a1a1aa;
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.daily-counter-copy strong {
+  margin-top: 0.2rem;
+  color: var(--guaro-gold);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-counter-count {
+  display: grid;
+  place-items: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding-inline: 0.35rem;
+  border-radius: 999px;
+  color: var(--guaro-white);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
 @media (max-width: 1099px) {
   .mobile-nav-layout {
     align-items: stretch;
@@ -503,10 +567,11 @@ button:active {
 
   .mobile-nav-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "brand actions"
-      "nav nav";
+      "brand"
+      "actions"
+      "nav";
     height: auto;
   }
 
@@ -529,10 +594,16 @@ button:active {
 
   .mobile-nav-actions {
     grid-area: actions;
+    width: 100%;
+    justify-content: space-between;
   }
 
-  .mobile-nav-actions > .relative:first-child {
-    display: none;
+  .daily-counter {
+    flex: 1;
+  }
+
+  .daily-counter-button {
+    width: 100%;
   }
 
   .mobile-profile-select {
@@ -606,6 +677,14 @@ button:active {
 
   .mobile-profile-select {
     width: 4.75rem;
+  }
+
+  .daily-counter-copy > span {
+    display: none;
+  }
+
+  .daily-counter-button {
+    gap: 0.35rem;
   }
 
   .mobile-primary-nav > button {
