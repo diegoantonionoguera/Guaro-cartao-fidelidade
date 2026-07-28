@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+@theme {
+  --color-amber-300: #FFC529;
+  --color-amber-400: #FF7A00;
+  --color-amber-500: #E32227;
+  --color-amber-600: #C81E1E;
+  --color-red-300: #E96B6B;
+  --color-red-400: #C81E1E;
+  --color-red-500: #C81E1E;
+  --color-red-600: #A81717;
+  --color-emerald-300: #68DC98;
+  --color-emerald-400: #2ECC71;
+  --color-emerald-500: #25A95E;
+  --color-blue-300: #79C3FF;
+  --color-blue-400: #3BA7FF;
+  --color-blue-500: #168FEF;
+  --color-purple-300: #FFD760;
+  --color-purple-400: #FFC529;
+  --color-purple-500: #FF7A00;
+}
+
+:root {
+  --guaro-red: #E32227;
+  --guaro-orange: #FF7A00;
+  --guaro-gold: #FFC529;
+  --guaro-black: #161616;
+  --guaro-graphite: #2E2E2E;
+  --guaro-white: #FFFFFF;
+  --guaro-light: #F5F5F5;
+  --guaro-success: #2ECC71;
+  --guaro-info: #3BA7FF;
+  --guaro-error: #C81E1E;
+  --guaro-gradient: linear-gradient(135deg, var(--guaro-red) 0%, var(--guaro-orange) 100%);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply text-zinc-100 antialiased min-h-screen selection:bg-amber-500/30 selection:text-white;
+    font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+    background-color: var(--guaro-black);
+    background-image:
+      radial-gradient(at 0% 0%, rgba(227, 34, 39, 0.14) 0, transparent 38%),
+      radial-gradient(at 100% 0%, rgba(255, 122, 0, 0.10) 0, transparent 42%),
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: auto, auto, 32px 32px;
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    font-family: "Bebas Neue", "Anton", Impact, sans-serif;
+    letter-spacing: 0.025em;
+    text-wrap: balance;
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--guaro-gold) 75%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+/* Custom dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--guaro-black);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--guaro-graphite);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--guaro-orange);
+}
+
+/* Animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(227, 34, 39, 0.20);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 122, 0, 0.38);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+/* Custom visual utilities */
+.glass-panel {
+  background: rgba(46, 46, 46, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-panel-hover:hover {
+  border-color: rgba(255, 122, 0, 0.34);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -16px rgba(227, 34, 39, 0.55);
+}
+
+/* Shimmer highlight line */
+.shimmer-badge {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+.brand-mark {
+  color: var(--guaro-white);
+  background: var(--guaro-gradient);
+  box-shadow: 0 12px 30px -12px rgba(227, 34, 39, 0.8);
+}
+
+button.bg-white,
+button.bg-amber-400 {
+  color: var(--guaro-white) !important;
+  border-color: rgba(255, 197, 41, 0.24);
+  background: var(--guaro-gradient) !important;
+  box-shadow: 0 12px 26px -14px rgba(227, 34, 39, 0.75);
+}
+
+button.bg-white:hover,
+button.bg-amber-400:hover {
+  color: var(--guaro-white) !important;
+  filter: brightness(1.08) saturate(1.05);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

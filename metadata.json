@@ -1,0 +1,6 @@
+{
+  "name": "FideliBurguer - Cartão Fidelidade Digital",
+  "description": "Sistema de gestão de programa de fidelidade para lanchonetes com controle de cotas por atendente, aprovações de gerente, validação por SMS e auditoria de vendas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
