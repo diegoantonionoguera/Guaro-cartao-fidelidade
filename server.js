@@ -410,9 +410,9 @@ app.post('/api/auth/login', async (req, res) => {
 
   if (!user) {
     attempt.count += 1;
-    if (attempt.count >= 5) {
+    if (attempt.count >= 3) {
       attempt.count = 0;
-      attempt.blockedUntil = Date.now() + 15 * 60_000;
+      attempt.blockedUntil = Date.now() + 1 * 3600_000;
     }
     loginAttempts.set(key, attempt);
     return res.status(401).json({ error: 'Login ou senha incorretos.' });
