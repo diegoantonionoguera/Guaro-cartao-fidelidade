@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 const port = 43117;
 const baseUrl = `http://127.0.0.1:${port}`;
 let server;
+const serverOutput = [];
 
 async function waitForServer() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -25,6 +27,7 @@ test.before(async () => {
     env: {
       ...process.env,
       NODE_ENV: 'production',
+      RENDER: 'true',
       PORT: String(port),
       ADMIN_USER: 'security-admin',
       ADMIN_PASSWORD: 'correct-horse-battery-staple',
@@ -37,6 +40,8 @@ test.before(async () => {
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
+  server.stdout.on('data', chunk => serverOutput.push(chunk.toString()));
+  server.stderr.on('data', chunk => serverOutput.push(chunk.toString()));
   await waitForServer();
 });
 
@@ -82,8 +87,8 @@ test('exige CSRF nas operações autenticadas', async () => {
   assert.equal(withToken.status, 204);
 });
 
-test('bloqueia força bruta após cinco tentativas', async () => {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+test('bloqueia força bruta por login após três tentativas', async () => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -99,6 +104,13 @@ test('bloqueia força bruta após cinco tentativas', async () => {
   assert.equal(blocked.status, 429);
 });
 
+test('isola o rate limit por IP e login e publica o host correto no Render', async () => {
+  const source = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  assert.match(source, /const key = `\$\{req\.ip\}:\$\{username\.toLowerCase\(\)\}`/);
+  assert.match(source, /runningOnRender\s*\?\s*'0\.0\.0\.0'/);
+  assert.match(serverOutput.join(''), /HOST:\s*'0\.0\.0\.0'/);
+});
+
 test('encerra o boot com diagnóstico seguro quando a senha é fraca', async () => {
   const output = [];
   const invalidServer = spawn(process.execPath, ['start.js'], {
@@ -106,6 +118,7 @@ test('encerra o boot com diagnóstico seguro quando a senha é fraca', async () 
     env: {
       ...process.env,
       NODE_ENV: 'production',
+      RENDER: 'true',
       PORT: '43118',
       ADMIN_USER: 'security-admin',
       ADMIN_PASSWORD: 'curta',

@@ -9,7 +9,11 @@ import { withWriteLock } from './src/services/writeLock.js';
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const production = process.env.NODE_ENV === 'production';
-const host = process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1');
+const runningOnRender = process.env.RENDER === 'true';
+const configuredHost = String(process.env.HOST || '').trim();
+const host = runningOnRender
+  ? '0.0.0.0'
+  : configuredHost || (production ? '0.0.0.0' : '127.0.0.1');
 const sessions = new Map();
 const loginAttempts = new Map();
 const redemptionChallenges = new Map();
@@ -61,6 +65,9 @@ function validateEnvironment() {
   }
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('PORT deve ser um número inteiro entre 1 e 65535.');
+  }
+  if (production && ['127.0.0.1', 'localhost', '::1'].includes(host.toLowerCase())) {
+    throw new Error('HOST não pode apontar para loopback em produção. Use 0.0.0.0.');
   }
   if (production && process.env.ADMIN_PASSWORD.length < 12) {
     throw new Error(`ADMIN_PASSWORD possui ${process.env.ADMIN_PASSWORD.length} caracteres; o mínimo em produção é 12.`);
@@ -377,13 +384,13 @@ function publicUser(user) {
 app.use('/api', requireSameOrigin);
 
 app.post('/api/auth/login', async (req, res) => {
-  const key = req.ip;
+  const username = cleanText(req.body?.username, 80);
+  const key = `${req.ip}:${username.toLowerCase()}`;
   const attempt = loginAttempts.get(key) || { count: 0, blockedUntil: 0 };
   if (attempt.blockedUntil > Date.now()) {
     return res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos.' });
   }
 
-  const username = cleanText(req.body?.username, 80);
   const password = String(req.body?.password || '');
   if (password.length > 256) {
     return res.status(400).json({ error: 'Login ou senha inválidos.' });

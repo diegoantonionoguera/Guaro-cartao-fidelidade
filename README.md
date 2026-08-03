@@ -14,7 +14,9 @@ Painel interno de clientes, pontos e recompensas do Guaro El Buen Venezolano. A 
 4. Execute `npm install` e depois `npm run dev`.
 5. Execute `npm run setup:sheets` para criar/atualizar as abas e seus cabeçalhos.
 
-Em desenvolvimento, o servidor aceita conexões somente de `127.0.0.1`. Em produção, use `NODE_ENV=production`; o host passa a `0.0.0.0` para funcionar em plataformas como Render.
+Em desenvolvimento, o servidor aceita conexões somente de `127.0.0.1`. Em produção, use `NODE_ENV=production`; o host passa a `0.0.0.0` para funcionar em plataformas como Render. Não configure `HOST` nem `PORT` no painel do Render: a plataforma fornece a porta e o servidor força o host público correto quando `RENDER=true`.
+
+O arquivo `.env` é exclusivamente local e nunca deve ser enviado ao Git. No Render, cadastre os segredos em **Environment**. O `render.yaml` documenta o build, o start, o health check e os nomes das variáveis, sem armazenar seus valores.
 
 As decisões de identidade e componentes estão documentadas em:
 
